@@ -255,8 +255,19 @@ back of the room.
       means nobody looked hard enough.
 - [ ] User's own edits preserved (mode B): diff against the backup.
 
+## Teaching the user how to use this
+
+If the user asks "how do I use this?", "teach me to use this", or wants to
+hand it to someone else, give them **`references/user-guide.md`** — the
+walkthrough: what to prepare, the five steps, a worked example dialogue, how
+to revise a deck they have already edited, and the common cases. Do not
+improvise a shorter version; that file is the tested one.
+
 ## References
 
+- `references/user-guide.md` — the walkthrough for the person using the
+  skill: preparation, the five steps, a worked dialogue, revising a deck,
+  common cases.
 - `references/intake.md` — the intake protocol: what to ask, how to judge a
   research question, how to derive one from a source, what to do after two
   unanswered rounds.

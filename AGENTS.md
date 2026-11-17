@@ -97,6 +97,14 @@ size** against your last write; if it changed, they edited it, and that file
 is the only valid baseline. Back it up with a timestamp, then edit in place.
 **Never re-run a generator over it.**
 
+## Teaching a user how to use this
+
+`skills/build-academic-ppt/references/user-guide.md` is the walkthrough for
+the person using the skill: what to prepare, the five steps, a worked
+example dialogue, how to revise a deck they have already hand-edited, and the
+common cases. Hand that file over when someone asks how to use this — do not
+improvise a shorter version.
+
 ## Tool mapping
 
 The skill is written against a Claude Code–shaped tool surface. On other

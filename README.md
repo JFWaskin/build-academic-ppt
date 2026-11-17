@@ -121,7 +121,14 @@ git clone --depth 1 https://github.com/JFWaskin/build-academic-ppt.git
 cp -R build-academic-ppt/skills/build-academic-ppt ~/.claude/skills/
 ```
 
-### Other agent harnesses
+### How to use it
+
+[`skills/build-academic-ppt/references/user-guide.md`](skills/build-academic-ppt/references/user-guide.md)
+is the walkthrough for the person using the skill: what to prepare, the five
+steps, a worked example dialogue, how to revise a deck they have already
+hand-edited, and the common cases. Hand it over as-is.
+
+## Other agent harnesses
 
 The skill is **plain files** — a `SKILL.md` with YAML frontmatter, a
 `references/` folder, and Python scripts. No Claude-specific tooling, no

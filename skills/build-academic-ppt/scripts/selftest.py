@@ -101,6 +101,18 @@ def test_themes():
         assert t.fonts()["serif_cn"] and t.fonts()["sans_en"]
 
 
+def test_the_user_guide_is_shipped():
+    """The walkthrough is part of the deliverable: it is what a user is handed
+    when they ask how this works."""
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    guide = os.path.join(root, "references", "user-guide.md")
+    assert os.path.isfile(guide), "references/user-guide.md is missing"
+    body = open(guide, encoding="utf-8").read()
+    for needed in ("brief", "SKILL.md", "qa_deck"):
+        assert needed in body, f"the guide never mentions {needed}"
+    assert len(body) > 1500, "the guide is too thin to be a walkthrough"
+
+
 def test_theme_api_names():
     """Both names for the lookup must work: a wrong guess should not be a
     crash in the middle of a build."""
@@ -643,6 +655,7 @@ def main():
     check("styles registered, tokens complete, contrast AA", test_themes)
     check("mat/ink pairs legible in every style", test_theme_contrast_pairs)
     check("the theme lookup answers to both names", test_theme_api_names)
+    check("the user guide ships with the skill", test_the_user_guide_is_shipped)
     section("deck_kit")
     check("theme switch changes the output", test_theme_switch_actually_switches)
     check("every run carries lang=zh-CN", test_lang_attribute_on_every_run)

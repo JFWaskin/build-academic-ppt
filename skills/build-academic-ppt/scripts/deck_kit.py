@@ -227,15 +227,28 @@ def _lang(run, lang="zh-CN", alt="en-US"):
     rPr.set("altLang", alt)
 
 
+def _name(shape, name):
+    """Tag a shape with a role name. The QA gate uses these to tell a
+    citation bar from body prose, instead of guessing from the length of
+    the text."""
+    shape.name = name
+    return shape
+
+
 def txt(slide, x, y, w, h, runs, size=None, color=None, bold=False,
         italic=False, latin=None, ea=None, line=1.15, space_after=0,
         align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP, spacing=None,
-        dark=False, font="sans", lang="zh-CN"):
+        dark=False, font="sans", lang="zh-CN", role=None):
     """Place a text box.
 
     Colour, size and typeface resolve from the ACTIVE THEME at call time, so
     `use_theme()` after import actually changes the output. Sizes are in
     points; geometry is in EMU.
+
+    `role` tags the shape with its job -- "dk_eyebrow", "dk_meta",
+    "dk_label", "dk_body". The QA gate skips tagged shapes when it checks
+    the type floor, because a label or an eyebrow is allowed below 14pt
+    while body prose is not. Untagged text is treated as body prose.
     """
     t = theme()
     x = _need_emu("x", x); y = _need_emu("y", y)
@@ -289,6 +302,8 @@ def txt(slide, x, y, w, h, runs, size=None, color=None, bold=False,
             _typeface(r, o["latin"], o["ea"])
             _lang(r, lang)
             r.text = text
+    if role:
+        tb.name = role
     return tb
 
 
@@ -393,8 +408,9 @@ def shot(slide, path, x, y, w, h, caption=None, valign="center",
     slide.shapes.add_picture(path, fx, fy, fw, fh)
     if caption:
         ccol = t.dark_ink_soft if dark else t.ink_soft
-        txt(slide, fx, fy + fh + Inches(0.10), cap_w or fw, Inches(0.44),
-            [[(caption, {})]], size=cap_size, color=ccol, line=1.22, dark=dark)
+        _name(txt(slide, fx, fy + fh + Inches(0.10), cap_w or fw, Inches(0.44),
+                  [[(caption, {})]], size=cap_size, color=ccol, line=1.22,
+                  dark=dark), "dk_caption")
     return fx, fy, fw, fh
 
 
@@ -441,11 +457,11 @@ def stat_row(slide, x, y, w, items, value_pt=23, gap=0.18, dark=False,
             [[(str(value), {"bold": True})]], size=size,
             color=value_color or (t.dark_ink if dark else t.ink),
             font="serif", line=1.0)
-        txt(slide, tx, y + Inches(size / 72 * 1.6) + Inches(0.04),
-            int(tile_w), Inches(0.5), [[(str(label), {})]],
-            size=t.label_pt,
-            color=label_color or (t.dark_ink_soft if dark else t.ink_soft),
-            line=1.15)
+        _name(txt(slide, tx, y + Inches(size / 72 * 1.6) + Inches(0.04),
+                  int(tile_w), Inches(0.5), [[(str(label), {})]],
+                  size=t.label_pt,
+                  color=label_color or (t.dark_ink_soft if dark else t.ink_soft),
+                  line=1.15), "dk_label")
     return y + Inches(size / 72 * 1.6) + Inches(0.04) + Inches(0.5)
 
 
@@ -513,20 +529,31 @@ class Deck:
     def divider(self, eyebrow, title, sub=None):
         s = self.blank(dark=True)
         t = theme()
-        txt(s, ML, Inches(2.7), CW, Inches(0.3), [[(eyebrow, {})]],
-            size=t.eyebrow_pt, color=t.accent_soft, spacing=1.6, line=1.0,
-            dark=True)
-        txt(s, ML, Inches(3.05), CW, Inches(0.9), [[(title, {})]],
-            size=t.title_pt + 6, color=t.dark_ink, bold=True, font="serif",
-            line=1.1, dark=True)
+        _name(txt(s, ML, Inches(2.7), CW, Inches(0.3), [[(eyebrow, {})]],
+                  size=t.eyebrow_pt, color=t.accent_soft, spacing=1.6, line=1.0,
+                  dark=True), "dk_eyebrow")
+        _name(txt(s, ML, Inches(3.05), CW, Inches(0.9), [[(title, {})]],
+                  size=t.title_pt + 6, color=t.dark_ink, bold=True, font="serif",
+                  line=1.1, dark=True), "dk_title")
         if sub:
-            txt(s, ML, Inches(4.0), Inches(8.5), Inches(0.6), [[(sub, {})]],
-                size=t.sub_pt, color=t.dark_ink_soft, italic=True, line=1.25,
-                font="serif", dark=True)
+            _name(txt(s, ML, Inches(4.0), Inches(8.5), Inches(0.6),
+                      [[(sub, {})]], size=t.sub_pt, color=t.dark_ink_soft,
+                      italic=True, line=1.25, font="serif", dark=True),
+                  "dk_sub")
         self.footer(s, dark=True)
         return s
 
     # -- furniture ------------------------------------------------------
+    def stat_row(self, slide, x, y, w, items, **kw):
+        """A row of big numbers with labels under them. Also available as
+        the module-level `deck_kit.stat_row`."""
+        return stat_row(slide, x, y, w, items, **kw)
+
+    def panel(self, slide, x, y, w, h, **kw):
+        """A flat panel with an accent bar. Also available as the
+        module-level `deck_kit.panel`."""
+        return panel(slide, x, y, w, h, **kw)
+
     def footer(self, slide, dark=False):
         t = theme()
         self.n = len(self.prs.slides._sldIdLst)
@@ -549,14 +576,16 @@ class Deck:
         tc = t.dark_ink if dark else t.ink
         acc = accent or (t.accent_soft if dark else t.accent)
         if eyebrow:
-            txt(slide, ML, Inches(0.34), CW, Inches(0.26), [[(eyebrow, {})]],
-                size=t.eyebrow_pt, color=acc, spacing=1.6, line=1.0, dark=dark)
+            _name(txt(slide, ML, Inches(0.34), CW, Inches(0.26),
+                      [[(eyebrow, {})]],
+                      size=t.eyebrow_pt, color=acc, spacing=1.6, line=1.0,
+                      dark=dark), "dk_eyebrow")
         if title:
             th = est_height([[(title, {})]], CW / 914400, size=t.title_pt,
                             line=1.1)
-            txt(slide, ML, Inches(0.62), CW, Inches(th + 0.06),
-                [[(title, {})]], size=t.title_pt, color=tc, bold=True,
-                font="serif", line=1.1, dark=dark)
+            _name(txt(slide, ML, Inches(0.62), CW, Inches(th + 0.06),
+                      [[(title, {})]], size=t.title_pt, color=tc, bold=True,
+                      font="serif", line=1.1, dark=dark), "dk_title")
         hrule(slide, ML, Inches(1.20), CW, t.dark_rule if dark else t.rule)
         y = Inches(1.34)
         if cite:
@@ -566,15 +595,17 @@ class Deck:
             lines = max(1, math.ceil(_units(cite) /
                                      ((CW / 914400) * 0.85 * 72 / t.cite_pt)))
             h = Inches(0.24 * lines + 0.14)
-            txt(slide, ML, y, CW, h, [[(cite, {})]], size=t.cite_pt,
-                color=ec, font="serif", italic=True, line=1.24, dark=dark)
+            _name(txt(slide, ML, y, CW, h, [[(cite, {})]], size=t.cite_pt,
+                      color=ec, font="serif", italic=True, line=1.24,
+                      dark=dark), "dk_cite")
             y = y + h + Inches(0.10)
         if sub:
             sublines = max(1, math.ceil(_units(sub) /
                                         ((CW / 914400) * 72 / t.sub_pt)))
             sh = Inches(0.26 * sublines + 0.12)
-            txt(slide, ML, y, CW, sh, [[(sub, {})]], size=t.sub_pt, color=ec,
-                font="serif", italic=True, line=1.26, dark=dark)
+            _name(txt(slide, ML, y, CW, sh, [[(sub, {})]], size=t.sub_pt,
+                      color=ec, font="serif", italic=True, line=1.26,
+                      dark=dark), "dk_sub")
             y = y + sh + Inches(0.08)
         self.footer(slide, dark)
         return y

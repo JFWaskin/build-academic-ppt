@@ -179,11 +179,14 @@ def check(pptx, keep=False, do_render=True, min_body=BODY_FLOOR_PT,
             if need > (r[3] - r[1]) / 72 + 0.06:
                 over_frame.append((si, sh.text_frame.text[:40].replace("\n", " ")))
 
-        # type floor
+        # type floor. deck_kit tags the roles it owns (citation bar, caption,
+        # eyebrow, title, sub, footer); those may sit below the body floor.
+        # Everything else is body prose and may not.
         for sh in slide.shapes:
             if not sh.has_text_frame:
                 continue
-            if (sh.name or "").startswith("dk_footer"):
+            role = (sh.name or "")
+            if role.startswith("dk_"):
                 continue
             for pa in sh.text_frame.paragraphs:
                 for r_ in pa.runs:
@@ -194,7 +197,7 @@ def check(pptx, keep=False, do_render=True, min_body=BODY_FLOOR_PT,
                         continue
                     if sz < CAPTION_FLOOR_PT:
                         floors.append((si, sz, "HARD", r_.text[:24]))
-                    elif sz < min_body and len(r_.text.strip()) >= BODY_LONG_CHARS:
+                    elif sz < min_body:
                         floors.append((si, sz, "body", r_.text[:24]))
 
         # screenshot / citation presence

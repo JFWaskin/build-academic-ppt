@@ -23,9 +23,22 @@ not hardcode it, because the citation bar wraps to a variable number of lines.
 **Screenshot-left** — crop ~6.1in wide, text right. `valign="top"` so a short
 crop does not float with a hole under it.
 
-**Screenshot-band** — full-width strip, ideal for aspect ratios > 3:1 (a
+**Screenshot-band** — a full-width strip, ideal for aspect ratios > 3:1 (a
 three-line journal crop). Cap the height so a tall crop cannot push the
 caption into the footer.
+
+> **Wide strips run full-bleed.** A crop with an aspect ratio above about 4:1
+> is a strip, not a picture. Run it to the page edges (x = 0, width =
+> `SLIDE_W`) and **bottom-align the band** at one height across the whole
+> deck, so the captions form a line. A strip boxed inside the content column
+> reads as a small picture floating in white; the same strip at full width
+> reads as an exhibit, and its text becomes legible from the back of a room.
+> The caption stays at the left margin under the band.
+
+**Body above the band** — with a full-bleed band, the body text sits directly
+under the header and the space between the text and the strip is the exhibit
+space. Do not vertically centre the whole block: that makes the gap jump from
+slide to slide as the body text length changes.
 
 **Two-column** — crop top-left, short summary below it, critique column right,
 separated by a 0.012in vertical rule. Give the columns a real gutter (~0.4in)

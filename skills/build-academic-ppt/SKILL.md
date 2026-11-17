@@ -211,6 +211,12 @@ runs a geometry check (text over a screenshot, text escaping its frame, text
 over text, content past the margin, content slide without a screenshot or a
 citation).
 
+**Tag the small type.** `txt(..., role="dk_meta")` names a shape with its job
+(`dk_eyebrow`, `dk_title`, `dk_cite`, `dk_sub`, `dk_caption`, `dk_meta`,
+`dk_label`). The QA gate skips tagged shapes when it checks the type floor —
+a citation bar may sit at 11pt, body prose may not. Untagged text counts as
+body prose, so a hand-built cover or closing slide must tag its labels.
+
 ### The defects that geometry checks exist for
 
 **Text boxes do not clip.** A box sized for one line lets the wrapped line 2
@@ -228,6 +234,13 @@ overrunning a box, check `lang` before narrowing anything.
 because a table cell given `3.5` instead of `Inches(3.5)` becomes a
 zero-width box, one character per line, the whole table stacked on itself.
 Use `E(...)` for computed EMU values.
+
+**A wide crop is a strip, not a picture.** When the crop's aspect ratio is
+above about 4:1, run it full-bleed to the page edges and bottom-align the
+band at one height across the deck, so the captions form a line. A strip
+boxed inside the content column reads as a small picture floating in white;
+at full width it reads as an exhibit, and its text becomes legible from the
+back of the room.
 
 ## Before shipping
 

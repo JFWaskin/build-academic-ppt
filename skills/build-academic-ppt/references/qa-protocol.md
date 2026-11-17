@@ -67,6 +67,14 @@ Two of its thresholds are deliberate and should not be "fixed":
   truncates 10.5 to 10 (integer division), which turns every 10.5pt caption
   into a false positive.
 
+**Tag the small type.** `deck_kit.txt(..., role="dk_meta")` names a shape with
+its job — `dk_eyebrow`, `dk_title`, `dk_cite`, `dk_sub`, `dk_caption`,
+`dk_meta`, `dk_label`, `dk_footer_text`. The gate skips tagged shapes when it
+checks the type floor, because a citation bar is allowed below 14pt and body
+prose is not. **Untagged text is treated as body prose**, so a hand-built
+cover or closing slide must tag its eyebrow and its meta lines, or the gate
+will report them as body text under the floor.
+
 ## 4. Fresh-eyes visual review
 
 Give a subagent the JPEGs and a defect list to hunt for. It must not know what

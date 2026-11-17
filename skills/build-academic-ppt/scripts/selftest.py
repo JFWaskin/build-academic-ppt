@@ -598,14 +598,28 @@ def test_crop_context_above_and_below_can_differ():
         "ctx_before/ctx_after had no effect on the crop"
 
 
+def _find_installer():
+    """install.sh lives in the repository root, not in the skill package. An
+    installed copy therefore has no installer next to it, and a test whose
+    subject is missing must SKIP rather than fail."""
+    here = os.path.abspath(os.path.dirname(__file__))
+    for up in range(1, 5):
+        cand = os.path.join(here, *([".."] * up), "install.sh")
+        cand = os.path.abspath(cand)
+        if os.path.isfile(cand):
+            return cand
+    return None
+
+
 def test_backups_never_land_inside_a_skills_directory():
     """A backup left inside the skills directory still carries a SKILL.md, so
     the harness loads it as a SECOND skill with the same name -- the skill
     list ends up showing duplicates after every install."""
-    # scripts/ -> skill/ -> skills/ -> repo root
-    repo = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                        "..", "..", ".."))
-    installer = os.path.join(repo, "install.sh")
+    installer = _find_installer()
+    if not installer:
+        print("      (skipped: install.sh is not next to this copy -- the "
+              "installer checks only run from the repository)")
+        return
     src = open(installer, encoding="utf-8").read()
     assert "$base/$SKILL_NAME.backup." not in src, \
         "the installer still backs up inside the skills directory"

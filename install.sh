@@ -104,9 +104,22 @@ try_url() {
   return 1
 }
 
+# The skill may already be sitting next to this installer -- that is the
+# normal case when the package was downloaded as a tarball and this script is
+# run from inside it. Using it means the installer and the package are
+# ALWAYS the same version, and it removes a whole network round trip.
+LOCAL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_SKILL="$LOCAL_ROOT/skills/$SKILL_NAME"
+
 step "downloading $SKILL_NAME"
 say "repo: $REPO  ref: $REF"
 
+if [ -f "$LOCAL_SKILL/SKILL.md" ]; then
+  mkdir -p "$WORK/pkg/skills"
+  cp -R "$LOCAL_SKILL" "$WORK/pkg/skills/$SKILL_NAME"
+  USED_ROUTE="the package bundled with this installer"
+  say "  ok -- the package bundled with this installer (no download needed)"
+else
 # 0. an operator-provided mirror repo (a Gitee mirror, say) wins outright
 if [ "$REPO" != "JFWaskin/build-academic-ppt" ]; then
   try_url "https://codeload.github.com/$REPO/tar.gz/refs/heads/$REF" "codeload (mirror repo)"
@@ -185,6 +198,7 @@ if [ -z "$USED_ROUTE" ]; then
     say "  failed -- git clone"
   fi
 fi
+fi   # end of the "package bundled with this installer" branch
 
 if [ -z "$USED_ROUTE" ]; then
   say ""

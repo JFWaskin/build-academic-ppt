@@ -598,6 +598,23 @@ def test_crop_context_above_and_below_can_differ():
         "ctx_before/ctx_after had no effect on the crop"
 
 
+def test_backups_never_land_inside_a_skills_directory():
+    """A backup left inside the skills directory still carries a SKILL.md, so
+    the harness loads it as a SECOND skill with the same name -- the skill
+    list ends up showing duplicates after every install."""
+    # scripts/ -> skill/ -> skills/ -> repo root
+    repo = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                        "..", "..", ".."))
+    installer = os.path.join(repo, "install.sh")
+    src = open(installer, encoding="utf-8").read()
+    assert "$base/$SKILL_NAME.backup." not in src, \
+        "the installer still backs up inside the skills directory"
+    assert ".skill-backups" in src, \
+        "the installer does not have an out-of-tree backup location"
+    assert 'bakdir="$(dirname "$base")/.skill-backups"' in src, \
+        "the backup directory is not a sibling of the skills directory"
+
+
 # ------------------------------------------------------------------ main
 def main():
     print("build-academic-ppt selftest")
@@ -616,6 +633,8 @@ def main():
     check("stat row keeps values on one line", test_stat_row_keeps_values_on_one_line)
     check("footer text is the deck's own", test_footer_is_not_hardcoded)
     check("the documented example runs", test_documented_example_runs)
+    check("backups stay out of the skills directory",
+          test_backups_never_land_inside_a_skills_directory)
     check("pad_uniform equalises the crop heights",
           test_pad_uniform_gives_every_crop_the_same_height)
     check("the gate catches unaligned evidence bands",

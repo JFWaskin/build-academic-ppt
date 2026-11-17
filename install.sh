@@ -57,6 +57,16 @@ if [ "$UNINSTALL" -eq 1 ]; then
       mv "$d" "$d.backup.$(date +%Y%m%dT%H%M%S)" && say "  moved $d to a timestamped backup"
     fi
   done
+  for b in "$HOME/.claude/.skill-backups/$SKILL_NAME".* \
+           "$HOME/.minimax/.skill-backups/$SKILL_NAME".* \
+           "$HOME/.codex/.skill-backups/$SKILL_NAME".* \
+           "$HOME/.config/opencode/.skill-backups/$SKILL_NAME".* \
+           "$HOME/.cursor/.skill-backups/$SKILL_NAME".* \
+           "$HOME/.gemini/.skill-backups/$SKILL_NAME".* \
+           "$HOME/.kimi/.skill-backups/$SKILL_NAME".* \
+           "$HOME/.pi/.skill-backups/$SKILL_NAME".*; do
+    [ -d "$b" ] && mv "$b" "$b.uninstalled" && say "  moved $b aside"
+  done
   say "done. backups are kept; delete them yourself when you are sure."
   exit 0
 fi
@@ -271,8 +281,13 @@ for base in $TARGETS; do
   mkdir -p "$base"
   dest="$base/$SKILL_NAME"
   if [ -d "$dest" ]; then
-    bak="$dest.backup.$(date +%Y%m%dT%H%M%S)"
-    say "  backing up the existing copy to $(basename "$bak")"
+    # The backup MUST live outside the skills directory. A copy left inside
+    # it still carries a SKILL.md, so the harness loads it as a second
+    # skill with the same name -- the skill list ends up showing duplicates.
+    bakdir="$(dirname "$base")/.skill-backups"
+    mkdir -p "$bakdir"
+    bak="$bakdir/$SKILL_NAME.$(date +%Y%m%dT%H%M%S)"
+    say "  backing up the existing copy to $bak"
     mv "$dest" "$bak"
   fi
   cp -R "$SKILL_SRC" "$dest"

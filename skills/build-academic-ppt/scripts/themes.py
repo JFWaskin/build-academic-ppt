@@ -244,6 +244,10 @@ def get(key):
     return THEMES[key]
 
 
+# Alias: both names are natural, and a wrong guess should not be a crash.
+get_theme = get
+
+
 def keys():
     return sorted(THEMES)
 

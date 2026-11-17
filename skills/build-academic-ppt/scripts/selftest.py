@@ -101,6 +101,20 @@ def test_themes():
         assert t.fonts()["serif_cn"] and t.fonts()["sans_en"]
 
 
+def test_theme_api_names():
+    """Both names for the lookup must work: a wrong guess should not be a
+    crash in the middle of a build."""
+    from themes import get, get_theme, THEMES
+    assert get("paper-warm") is get_theme("paper-warm")
+    assert get is get_theme
+    try:
+        get("no-such-style")
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("an unknown style must raise, not fall back")
+
+
 def test_theme_contrast_pairs():
     """A light crop on a dark slide needs a DARK ink on the mat."""
     from themes import THEMES, contrast_ratio
@@ -531,6 +545,7 @@ def main():
     section("themes")
     check("styles registered, tokens complete, contrast AA", test_themes)
     check("mat/ink pairs legible in every style", test_theme_contrast_pairs)
+    check("the theme lookup answers to both names", test_theme_api_names)
     section("deck_kit")
     check("theme switch changes the output", test_theme_switch_actually_switches)
     check("every run carries lang=zh-CN", test_lang_attribute_on_every_run)

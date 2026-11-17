@@ -599,14 +599,21 @@ def test_crop_context_above_and_below_can_differ():
 
 
 def _find_installer():
-    """install.sh lives in the repository root, not in the skill package. An
-    installed copy therefore has no installer next to it, and a test whose
-    subject is missing must SKIP rather than fail."""
+    """install.sh lives in the repository root, not in the skill package.
+
+    Two traps here, both real:
+      * an installed copy has no installer next to it, and a test whose
+        subject is missing must SKIP rather than fail;
+      * searching upwards finds ANY install.sh -- including an unrelated
+        script that happens to sit in the home directory. So the repository
+        root is identified by its .claude-plugin/ marker, not by the name of
+        the file.
+    """
     here = os.path.abspath(os.path.dirname(__file__))
     for up in range(1, 5):
-        cand = os.path.join(here, *([".."] * up), "install.sh")
-        cand = os.path.abspath(cand)
-        if os.path.isfile(cand):
+        root = os.path.abspath(os.path.join(here, *([".."] * up)))
+        cand = os.path.join(root, "install.sh")
+        if os.path.isfile(cand) and os.path.isdir(os.path.join(root, ".claude-plugin")):
             return cand
     return None
 

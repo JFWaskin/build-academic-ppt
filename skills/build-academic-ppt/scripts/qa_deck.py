@@ -287,12 +287,23 @@ def check(pptx, keep=False, do_render=True, min_body=BODY_FLOOR_PT,
                         overlaps.append((pi, a[4][:26], b[4][:26]))
 
     # ---------- placeholders ----------
+    # markitdown is optional. Without it the deck's text is read straight out
+    # of the pptx instead -- same result, no extra dependency.
+    txt = ""
     try:
         txt = subprocess.run([sys.executable, "-m", "markitdown", pptx],
                              capture_output=True, text=True).stdout
     except Exception:
         txt = ""
-    junk = re.findall(r"(?i)\b(lorem|ipsum|xxxx|placeholder|TODO|FIXME|Lorem)\b", txt)
+    if not txt.strip():
+        from pptx import Presentation as _P
+        try:
+            _prs = _P(pptx)
+            txt = "\n".join(sh.text_frame.text for sl in _prs.slides
+                             for sh in sl.shapes if sh.has_text_frame)
+        except Exception:
+            txt = ""
+    junk = re.findall(r"(?i)\b(lorem|ipsum|xxxx|placeholder|TODO|FIXME)\b", txt)
 
     # ---------- report ----------
     print(f"deck        : {os.path.basename(pptx)}  ({len(prs.slides._sldIdLst)} slides)")

@@ -51,7 +51,14 @@ python3 skills/build-academic-ppt/scripts/style_previews.py --sheets
 ### As a Claude Code plugin
 
 ```
+/plugin install build-academic-ppt --marketplace JFWaskin/build-academic-ppt
+```
+
+or, to add the marketplace first and install from it:
+
+```
 /plugin marketplace add JFWaskin/build-academic-ppt
+/plugin install build-academic-ppt
 ```
 
 ### As a plain skill directory

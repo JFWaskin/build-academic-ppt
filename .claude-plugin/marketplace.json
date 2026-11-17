@@ -1,0 +1,31 @@
+{
+  "name": "build-academic-ppt",
+  "owner": {
+    "name": "Jonathan F. Waskin",
+    "url": "https://github.com/JFWaskin"
+  },
+  "metadata": {
+    "description": "Evidence-based academic deck building for Claude Code.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "build-academic-ppt",
+      "source": "./",
+      "description": "Build or revise academic presentation decks from papers, monographs, reports and scanned sources: every claim traceable to a highlighted passage in the real source, with a mandatory intake brief, seven tested visual styles, and a mechanical QA gate.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Jonathan F. Waskin"
+      },
+      "homepage": "https://github.com/JFWaskin/build-academic-ppt",
+      "license": "MIT",
+      "keywords": [
+        "presentation",
+        "pptx",
+        "academic",
+        "slides",
+        "citation"
+      ]
+    }
+  ]
+}

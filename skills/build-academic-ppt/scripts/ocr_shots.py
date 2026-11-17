@@ -90,11 +90,17 @@ def render_page(pdf, page_no, zoom=ZOOM):
 def _run_tesseract(src, lang):
     """Run tesseract and return (tsv_text, stderr_text, language_used).
 
-    Two things go wrong here that both look like "tesseract is broken":
+    Three things go wrong here that all look like "tesseract is broken":
+
       * the language pack is not installed ("Failed loading language
         'chi_sim'"), which is common -- fall back to English and say so;
-      * stderr is not valid UTF-8, which kills `text=True` outright.
+      * stderr is not valid UTF-8, which kills `text=True` outright and
+        masks the real error behind a UnicodeDecodeError;
+      * leptonica cannot open a file through a symlinked directory such as
+        /tmp (which points at /private/tmp) when it is given the symlinked
+        absolute path. Resolve the path before handing it over.
     """
+    src = os.path.realpath(src)
     proc = subprocess.run(["tesseract", src, "stdout", "-l", lang, "tsv"],
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     tsv = proc.stdout.decode("utf-8", errors="ignore")
@@ -107,6 +113,10 @@ def _run_tesseract(src, lang):
         err += (f"\n[ocr_shots] language pack {lang!r} is not installed; "
                 f"fell back to English only.")
         return tsv, err, "eng"
+    if not tsv.strip() and err.strip():
+        # an empty TSV with a message on stderr is a real failure; say what
+        # it was instead of returning silence
+        err += f"\n[ocr_shots] tesseract produced no output for {src}"
     return tsv, err, lang
 
 
@@ -145,6 +155,10 @@ def ocr_lines(img, lang="chi_sim+eng", tmpdir=None, tmpname=None):
         b["y"].append((top, top + height))
         b["x0"].append(left)
         b["x1"].append(left + width)
+
+    if not lines and err.strip():
+        # silence is the worst possible error message: say what tesseract said
+        print(f"  !! ocr_shots: tesseract returned no lines\n{err.strip()}")
 
     # merge fragments that share a vertical band (OCR splits one printed line)
     raw = []

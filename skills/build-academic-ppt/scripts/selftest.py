@@ -480,6 +480,29 @@ def test_ocr_falls_back_when_language_pack_missing():
     assert tsv.strip(), "the fallback produced no TSV"
 
 
+def test_ocr_works_through_a_symlinked_directory():
+    """/tmp is a symlink to /private/tmp, and leptonica (inside tesseract)
+    could not open a file through it when given the symlinked absolute path.
+    The failure surfaced as an unrelated UnicodeDecodeError, which is how it
+    cost an afternoon. The path is now resolved before tesseract sees it."""
+    import shutil
+    if not shutil.which("tesseract"):
+        print("      (skipped: tesseract not installed)")
+        return
+    import ocr_shots
+    from PIL import Image, ImageDraw
+    real = tempfile.mkdtemp(prefix="ocrreal_")
+    link = os.path.join(tempfile.mkdtemp(prefix="ocrlink_"), "via_symlink")
+    os.symlink(real, link)
+    img = Image.new("RGB", (900, 300), "white")
+    ImageDraw.Draw(img).text((30, 120), "hello world test line", fill=(20, 20, 20),
+                             font=_big_font())
+    p = os.path.join(link, "p.png")
+    img.save(p)
+    tsv, err, used = ocr_shots._run_tesseract(p, "eng")
+    assert tsv.strip(), "no TSV through a symlinked path: " + err[:200]
+
+
 # ------------------------------------------------------------------ main
 def main():
     print("build-academic-ppt selftest")
@@ -510,6 +533,8 @@ def main():
     check("OCR survives a non-UTF-8 stderr", test_ocr_path_survives_binary_stderr)
     check("a missing language pack falls back to English",
           test_ocr_falls_back_when_language_pack_missing)
+    check("OCR works through a symlinked directory",
+          test_ocr_works_through_a_symlinked_directory)
     section("qa_deck")
     check("clean deck passes", test_qa_deck_passes_clean_deck)
     check("broken deck fails", test_qa_deck_fails_broken_deck)

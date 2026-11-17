@@ -38,16 +38,29 @@ from the toolkit and hardened the pieces that were there.
   unit guards, the geometry check, the stat row, the brief gate,
   research-question derivation, crop highlighting and ambiguity, and the QA
   gate against both a clean and a broken deck.
-- **`scripts/ocr_shots.py`** — the scanned-source path: tesseract TSV, words
-  clustered into visual lines, normalised fuzzy matching, a crop taken over
-  the text column's x-range, and an amber highlight verified before the image
-  is written.
+- **`scripts/ocr_shots.py`** — the scanned-source path. The default backend is
+  **macOS Vision**, because on a Chinese scan tesseract's `chi_sim` returns
+  garbled text while Vision reads it correctly, and Vision is about five
+  times faster warm (0.7 s vs 3.5 s per page). Tesseract remains the
+  fallback for machines without pyobjc (`--backend tesseract`).
 - **A per-slide manifest.** `Deck.save()` writes `<deck>.manifest.json` with
   each slide's kind, citation and screenshot count, so `qa_deck.py` can tell a
   content slide (which owes a citation and a screenshot) from a divider.
+- **A plugin icon and a marketplace manifest**, so the repository installs
+  with one line: `/plugin install build-academic-ppt --marketplace
+  JFWaskin/build-academic-ppt`.
 
 ### Fixed
 
+- **The OCR path died on a real Chinese scan.** Three separate causes, each
+  of which surfaced as an unrelated `UnicodeDecodeError`: tesseract writes
+  progress to stderr in a local encoding that is not valid UTF-8; leptonica
+  cannot open a file through a symlinked directory such as `/tmp` (which
+  points at `/private/tmp`) when handed the symlinked absolute path; and
+  `PIL.Image.tobytes()` returns raw pixels rather than an encoded image, so
+  Vision was handed a zero-dimensioned image. All three are fixed, and an
+  empty result with a message on stderr now reports the message instead of
+  returning silence.
 - **Chinese did not wrap.** python-pptx writes runs with no `lang` attribute,
   so a Chinese paragraph with no spaces was laid out as one unbreakable word
   and ran off the right edge. `deck_kit.txt()` now writes `lang="zh-CN"` and
@@ -79,6 +92,11 @@ from the toolkit and hardened the pieces that were there.
   under the floor because python-pptx truncates 10.5 to 10. The size now
   comes from the XML, and the margin allows 14pt of Chinese hanging
   punctuation.
+- **`pdf_shots.py` was slow on image-heavy documents.** It read the page with
+  `get_text("dict")`, which does a per-character layout analysis and is up to
+  two orders of magnitude slower than `get_text("words")` on a document with
+  full-page images. It now uses the fast mode and clusters the words on their
+  vertical centre, with the column taken from the block number.
 - **The footer was hardcoded** to one project's wording. `Deck(footer=...)`
   now carries it.
 - **A row of big numbers could wrap.** Each tile now shares one font size,

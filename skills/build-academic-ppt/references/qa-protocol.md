@@ -92,22 +92,37 @@ fix frequently creates a new overflow one element down.
 
 ## Scanned sources (no text layer)
 
-`pdf_shots.py` relies on the text layer. When a PDF has none:
+`pdf_shots.py` relies on the text layer. When a PDF has none, use
+`scripts/ocr_shots.py`. It OCRs the page and crops the rendered image:
 
-1. OCR the page with tesseract TSV, cluster the words into visual lines by
-   (block, paragraph, line) and then by vertical centre.
-2. Match the needle against those lines with a normalised fuzzy match (strip
-   whitespace and CJK punctuation, then `difflib` ratio + substring hit).
-3. Crop using the **x-range of the matched line**, but take the **x-range of
-   the whole text column** so neighbouring lines are not cut in half.
-4. Draw the amber highlight yourself over the matched line.
+```bash
+python3 scripts/ocr_shots.py probe book.pdf 52 "占全书比例超出"
+python3 scripts/ocr_shots.py shots book.pdf jobs.json outdir/
+```
 
-**The renderer must match the corpus renderer.** If you build the OCR corpus
-with `pdftoppm` and crop with PyMuPDF, the two produce different text for the
-same page and the needle appears to be missing. Use PyMuPDF for both.
+**The default backend is macOS Vision**, and it should stay the default: on a
+Chinese scan, tesseract's `chi_sim` returns garbled text, while Vision reads
+it correctly. Vision is also about five times faster warm (0.7 s vs 3.5 s per
+page). Its **first** call takes around 25 s while the language model
+initialises — that is not a hang. Use `--backend tesseract` on a machine
+without pyobjc, or for a language Vision has no pack for.
 
-`scripts/ocr_shots.py` implements this path. Use short, distinctive needles —
-OCR splits long phrases, so a whole sentence often will not match.
+Two rules that survive any backend:
+
+1. **The renderer must match the corpus renderer.** If you build the OCR
+   corpus with `pdftoppm` and crop with PyMuPDF, the two produce different
+   text for the same page and the needle will appear to be missing. Use
+   PyMuPDF for both.
+2. **Use short, distinctive needles.** OCR splits long phrases, so a whole
+   sentence often will not match.
+
+The pipeline, in order: OCR the page → cluster the words into visual lines
+(tesseract: by block/par/line, then merged by vertical centre, because OCR
+splits one printed line into fragments) → match the needle against those
+lines with a normalised fuzzy match → crop over the matched line's x-range
+but take the **text column's** x-range, so a neighbouring line is not sliced
+in half at the frame edge → draw the amber highlight → verify amber pixels
+are actually present before the image is written.
 
 ## Defect catalogue
 

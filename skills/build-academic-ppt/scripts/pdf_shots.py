@@ -120,23 +120,31 @@ def _column_boundary(page, spans):
 
 
 def _cluster_lines(page, x0=None, x1=None):
-    """Return [(bbox, y_center, text)] with one entry per visual line."""
+    """Return [(bbox, y_center, text)] with one entry per visual line.
+
+    Fed by `get_text("words")`, which is fast -- the "dict" mode does a
+    per-character layout analysis and is up to two orders of magnitude
+    slower on a document with full-page images -- and carries the block and
+    line numbers needed to keep columns apart.
+
+    PyMuPDF's own line segmentation is unreliable for CJK: a whole paragraph
+    can come back as a single line, and in a two-column page a left-column
+    line and a right-column line at the same height would merge into one
+    bbox spanning both columns. So the words are re-clustered on their
+    vertical centre, with the column taken from the block number.
+    """
     spans = []
-    for b in page.get_text("dict")["blocks"]:
-        if b.get("type") != 0:
+    for wx0, wy0, wx1, wy1, text, block, line, wno in page.get_text("words"):
+        if not text or not text.strip():
             continue
-        for ln in b.get("lines", []):
-            for sp in ln["spans"]:
-                bb = fitz.Rect(sp["bbox"])
-                if not sp["text"].strip():
-                    continue
-                if (bb.y1 - bb.y0) > VERTICAL_H and (bb.x1 - bb.x0) < VERTICAL_W:
-                    continue
-                if x0 is not None and (bb.x1 < x0 - 2 or bb.x0 > x1 + 2):
-                    continue
-                if x1 is not None and bb.x0 > x1 + 2:
-                    continue
-                spans.append((bb, sp["text"]))
+        bb = fitz.Rect(wx0, wy0, wx1, wy1)
+        if (bb.y1 - bb.y0) > VERTICAL_H and (bb.x1 - bb.x0) < VERTICAL_W:
+            continue  # vertical masthead in the outer margin
+        if x0 is not None and (bb.x1 < x0 - 2 or bb.x0 > x1 + 2):
+            continue
+        if x1 is not None and bb.x0 > x1 + 2:
+            continue
+        spans.append((bb, text, block))
     if not spans:
         return []
     if x0 is not None and x1 is not None:
@@ -145,9 +153,10 @@ def _cluster_lines(page, x0=None, x1=None):
         mid = _column_boundary(page, spans)
     spans.sort(key=lambda t: (((t[0].y0 + t[0].y1) / 2),
                              0 if (mid is None or (t[0].x0 + t[0].x1) / 2 < mid) else 1,
+                             t[2],
                              t[0].x0))
     lines = []
-    for bb, t in spans:
+    for bb, t, block in spans:
         yc = (bb.y0 + bb.y1) / 2
         col = 0 if (mid is None or (bb.x0 + bb.x1) / 2 < mid) else 1
         key = (col, round(yc / LINE_TOL))

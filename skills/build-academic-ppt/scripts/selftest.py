@@ -503,6 +503,28 @@ def test_ocr_works_through_a_symlinked_directory():
     assert tsv.strip(), "no TSV through a symlinked path: " + err[:200]
 
 
+def test_vision_backend_reads_english():
+    """macOS Vision is the reference backend: on a Chinese scan tesseract's
+    chi_sim garbles the text. Vision's boxes also have their origin at the
+    BOTTOM left, so the y flip has to be right."""
+    import ocr_shots
+    if not ocr_shots.vision_available():
+        print("      (skipped: macOS Vision not available)")
+        return
+    from PIL import Image, ImageDraw
+    img = Image.new("RGB", (1400, 400), "white")
+    ImageDraw.Draw(img).text((40, 160),
+                             "the opening claim appears here in the scan",
+                             fill=(20, 20, 20), font=_big_font())
+    lines = ocr_shots.ocr_lines_vision(img)
+    assert lines, "Vision returned no lines"
+    txt = " ".join(L["text"] for L in lines)
+    assert "opening" in txt.lower(), f"Vision did not read the line: {txt[:120]}"
+    for L in lines:
+        assert 0 <= L["y0"] < L["y1"] <= img.height, \
+            f"Vision box {L} is not in top-origin coordinates"
+
+
 # ------------------------------------------------------------------ main
 def main():
     print("build-academic-ppt selftest")
@@ -535,6 +557,8 @@ def main():
           test_ocr_falls_back_when_language_pack_missing)
     check("OCR works through a symlinked directory",
           test_ocr_works_through_a_symlinked_directory)
+    check("the Vision backend reads and flips coordinates",
+          test_vision_backend_reads_english)
     section("qa_deck")
     check("clean deck passes", test_qa_deck_passes_clean_deck)
     check("broken deck fails", test_qa_deck_fails_broken_deck)

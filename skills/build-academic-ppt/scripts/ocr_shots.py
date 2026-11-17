@@ -8,12 +8,23 @@ text layer, `search_for()` finds nothing, and the natural conclusion -- "a
 scanned book cannot be made into an evidence deck" -- is wrong. It can, by
 OCR-ing the page and cropping the rendered image.
 
+Backends
+--------
+macOS Vision (the default on macOS, via pyobjc) is the reference OCR for
+Chinese here: on a Chinese book scan tesseract's chi_sim returns garbled
+text, while Vision reads it correctly. Vision is also about five times
+faster warm (0.7 s vs 3.5 s per page). Its FIRST call takes around 25 s
+while the language model initialises -- that is not a hang.
+
+Tesseract is the fallback, for machines without pyobjc and for languages
+Vision has no pack for.
+
 Pipeline
 --------
   1. render the page with PyMuPDF at zoom Z
-  2. OCR that render with tesseract (TSV output)
-  3. cluster the words into VISUAL lines (block/par/line, then merged by
-     vertical centre -- OCR splits one printed line into several fragments)
+  2. OCR that render (Vision or tesseract)
+  3. cluster the words into VISUAL lines (tesseract: by block/par/line, then
+     merged by vertical centre -- OCR splits one printed line into fragments)
   4. match the needle against those lines with a normalised fuzzy match
   5. crop the rendered image over the matched line's x-range, but take the
      x-range of the whole text column so neighbouring lines are not sliced
@@ -29,10 +40,12 @@ Usage
 -----
   python3 ocr_shots.py probe book.pdf 52 "占全书比例超出"
   python3 ocr_shots.py shots book.pdf jobs.json outdir/
+  python3 ocr_shots.py shots book.pdf jobs.json outdir/ --backend tesseract
 
 jobs.json: [{"name": "s1", "page": 52, "needles": ["占全书比例超出"], "ctx": 2}]
 """
 import argparse
+import io
 import json
 import os
 import re
@@ -120,7 +133,97 @@ def _run_tesseract(src, lang):
     return tsv, err, lang
 
 
-def ocr_lines(img, lang="chi_sim+eng", tmpdir=None, tmpname=None):
+def vision_available():
+    """macOS Vision is the reference OCR for Chinese on this machine."""
+    try:
+        import Vision  # noqa: F401
+        from Quartz import CGImageSourceCreateWithData  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def ocr_lines_vision(img, languages=("zh-Hans", "zh-Hant", "en-US")):
+    """macOS Vision OCR.
+
+    Preferred for Chinese: on a Chinese book scan tesseract's chi_sim returns
+    garbled text, while Vision reads it correctly and is about 0.27 s per
+    page. `usesLanguageCorrection` is off on purpose -- it costs an order of
+    magnitude more time and "corrects" proper nouns into the wrong ones.
+
+    Vision's bounding boxes are normalised with the origin at the BOTTOM
+    left; they are flipped to top-origin here so they can be mixed with
+    PyMuPDF's coordinates.
+    """
+    from Foundation import NSData
+    from Quartz import (CGImageSourceCreateWithData,
+                        CGImageSourceCreateImageAtIndex)
+    from Vision import VNImageRequestHandler, VNRecognizeTextRequest
+
+    # Encode to PNG IN MEMORY. `PIL.Image.tobytes()` returns raw pixel bytes,
+    # not an encoded image, and ImageIO then reports a zero-dimensioned
+    # image -- so the PNG has to be encoded explicitly.
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    png = buf.getvalue()
+    data = NSData.dataWithBytes_length_(png, len(png))
+    src = CGImageSourceCreateWithData(data, None)
+    cg = CGImageSourceCreateImageAtIndex(src, 0, None)
+    if cg is None:
+        return []
+    handler = VNImageRequestHandler.alloc().initWithCGImage_options_(cg, None)
+    req = VNRecognizeTextRequest.alloc().init()
+    req.setRecognitionLevel_(0)          # 0 = accurate
+    req.setUsesLanguageCorrection_(False)
+    try:
+        req.setRecognitionLanguages_(list(languages))
+    except Exception:
+        pass
+
+    ok, err = handler.performRequests_error_([req], None)
+    if not ok:
+        raise RuntimeError(f"Vision failed: {err}")
+
+    W, H = img.width, img.height
+    out = []
+    for obs in (req.results() or []):
+        cands = obs.topCandidates_(1)
+        if not cands:
+            continue
+        text = cands[0].string()
+        if not text.strip():
+            continue
+        bb = obs.boundingBox()
+        x0 = bb.origin.x * W
+        x1 = (bb.origin.x + bb.size.width) * W
+        y1 = (1.0 - bb.origin.y) * H                 # flip: Vision's origin is bottom-left
+        y0 = (1.0 - (bb.origin.y + bb.size.height)) * H
+        out.append({"text": text, "x0": int(x0), "x1": int(x1),
+                    "y0": int(y0), "y1": int(y1), "yc": (y0 + y1) / 2})
+    out.sort(key=lambda r: (r["yc"], r["x0"]))
+    return out
+
+
+def ocr_lines(img, lang="chi_sim+eng", tmpdir=None, tmpname=None,
+              backend="auto"):
+    """OCR an image and return [(text, x0, y0, x1, y1)] in image pixels.
+
+    backend: "auto" (Vision when available, else tesseract), "vision",
+    "tesseract".
+    """
+    if backend in ("auto", "vision") and vision_available():
+        try:
+            lines = ocr_lines_vision(img)
+            if lines:
+                return lines
+        except Exception as e:      # noqa: BLE001
+            if backend == "vision":
+                raise
+            print(f"  !! ocr_shots: Vision failed ({e}); falling back to tesseract")
+    return ocr_lines_tesseract(img, lang=lang, tmpdir=tmpdir, tmpname=tmpname)
+
+
+def ocr_lines_tesseract(img, lang="chi_sim+eng", tmpdir=None, tmpname=None):
     """OCR an image and return [(text, x0, y0, x1, y1)] in image pixels."""
     tmpdir = tmpdir or tempfile.mkdtemp(prefix="ocr_")
     src = os.path.join(tmpdir, (tmpname or "page") + ".png")
@@ -203,10 +306,10 @@ def match_line(lines, needle):
 
 
 def crop_scanned(pdf, page_no, needles, ctx=2, zoom=ZOOM, lang="chi_sim+eng",
-                 out=None, tmpdir=None, verify=True):
+                 out=None, tmpdir=None, verify=True, backend="auto"):
     img = render_page(pdf, page_no, zoom)
     lines = ocr_lines(img, lang=lang, tmpdir=tmpdir,
-                      tmpname=f"p{page_no}")
+                      tmpname=f"p{page_no}", backend=backend)
     if not lines:
         return None, ["no OCR lines"]
     notes = []
@@ -255,9 +358,9 @@ def crop_scanned(pdf, page_no, needles, ctx=2, zoom=ZOOM, lang="chi_sim+eng",
     return crop, notes
 
 
-def cmd_probe(pdf, page_no, needles, lang="chi_sim+eng"):
+def cmd_probe(pdf, page_no, needles, lang="chi_sim+eng", backend="auto"):
     img = render_page(pdf, page_no)
-    lines = ocr_lines(img, lang=lang)
+    lines = ocr_lines(img, lang=lang, backend=backend)
     print(f"page {page_no}: {len(lines)} OCR lines")
     for i, L in enumerate(lines):
         print(f"  {i:3}  {L['text'][:90]}")
@@ -267,7 +370,8 @@ def cmd_probe(pdf, page_no, needles, lang="chi_sim+eng"):
               if idx is not None else f"{nd!r:40} -> NOT FOUND")
 
 
-def cmd_shots(pdf, jobs_path, outdir, zoom=ZOOM, lang="chi_sim+eng"):
+def cmd_shots(pdf, jobs_path, outdir, zoom=ZOOM, lang="chi_sim+eng",
+              backend="auto"):
     jobs = json.load(open(jobs_path, encoding="utf-8"))
     os.makedirs(outdir, exist_ok=True)
     tmpdir = tempfile.mkdtemp(prefix="ocrshots_")
@@ -276,7 +380,7 @@ def cmd_shots(pdf, jobs_path, outdir, zoom=ZOOM, lang="chi_sim+eng"):
     for j in jobs:
         img, notes = crop_scanned(pdf, j["page"], j["needles"],
                                   ctx=j.get("ctx", 2), zoom=zoom, lang=lang,
-                                  out=None, tmpdir=tmpdir)
+                                  out=None, tmpdir=tmpdir, backend=backend)
         if img is None:
             print(f"  !! {j['name']}: FAILED ({'; '.join(notes)})")
             fails += 1
@@ -300,11 +404,16 @@ def main(argv=None):
     ap.add_argument("args", nargs="+")
     ap.add_argument("--lang", default="chi_sim+eng")
     ap.add_argument("--zoom", type=float, default=ZOOM)
+    ap.add_argument("--backend", default="auto",
+                    choices=["auto", "vision", "tesseract"],
+                    help="auto uses macOS Vision when available (better for "
+                         "Chinese), else tesseract")
     a = ap.parse_args(argv)
     if a.cmd == "probe":
-        cmd_probe(a.args[0], int(a.args[1]), a.args[2:], a.lang)
+        cmd_probe(a.args[0], int(a.args[1]), a.args[2:], a.lang, a.backend)
         return 0
-    fails = cmd_shots(a.args[0], a.args[1], a.args[2], a.zoom, a.lang)
+    fails = cmd_shots(a.args[0], a.args[1], a.args[2], a.zoom, a.lang,
+                      a.backend)
     return 1 if fails else 0
 
 

@@ -54,11 +54,27 @@ GitHub 在境内的可达性不稳定，而且主站、codeload、API、raw CDN 
 某个镜像今天能用下周可能就没了。所以安装器**按顺序试遍所有通道**，
 谁先成功用谁，并打印出实际走的是哪条：
 
+**先取整包，再从包内运行安装器**——不要单独去取 `install.sh`：
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/JFWaskin/build-academic-ppt/main/install.sh | bash
+mkdir -p /tmp/bdp && cd /tmp/bdp && \
+( curl -fsSL --connect-timeout 8 --max-time 60 -o pkg.tgz \
+    https://codeload.github.com/JFWaskin/build-academic-ppt/tar.gz/refs/heads/main \
+  || curl -fsSL --connect-timeout 8 --max-time 60 -o pkg.tgz \
+    https://github.com/JFWaskin/build-academic-ppt/archive/refs/heads/main.tar.gz \
+  || curl -fsSL --connect-timeout 8 --max-time 60 -o pkg.tgz \
+    https://ghfast.top/https://github.com/JFWaskin/build-academic-ppt/archive/refs/heads/main.tar.gz \
+  || curl -fsSL --connect-timeout 8 --max-time 60 -o pkg.tgz \
+    https://cdn.jsdelivr.net/gh/JFWaskin/build-academic-ppt@main/install.sh ) \
+  && tar -xzf pkg.tgz && cd build-academic-ppt-main && ./install.sh
 ```
 
-如果 raw 也进不去，先手动拿到 `install.sh`（或整包），再本地运行：
+**为什么先取整包**：`raw.githubusercontent.com` 的 CDN 在推送之后可能**几分钟内还在发旧版**
+（实测过：raw 发的是修复前的 install.sh，而 codeload 已经是新的）。从整包里运行
+安装器，安装器和 skill 包必然是同一版本，也省掉一次网络往返。
+
+如果连 codeload 都进不去，**先手动拿到整包或 install.sh**，再本地运行；也可以指向
+你自己的码云镜像：
 
 ```bash
 BUILD_ACADEMIC_PPT_REPO=<你在码云上的镜像>/<仓库名> ./install.sh

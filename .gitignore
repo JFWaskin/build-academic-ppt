@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.DS_Store
+.deck-brief.json
+*.manifest.json
+*.pptx
+*.pdf
+!skills/build-academic-ppt/assets/previews/*.jpg
+.venv/
+venv/

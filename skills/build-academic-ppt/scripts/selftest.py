@@ -539,6 +539,65 @@ def test_vision_backend_reads_english():
             f"Vision box {L} is not in top-origin coordinates"
 
 
+def test_pad_uniform_gives_every_crop_the_same_height():
+    """Crops from different pages have different heights, so a full-width
+    strip renders at a different height on every slide and the deck steps up
+    and down as you page through it."""
+    import deck_kit as K
+    from PIL import Image
+    tmp = tempfile.mkdtemp()
+    paths = []
+    for i, h in enumerate((60, 120, 200)):
+        p = os.path.join(tmp, f"c{i}.png")
+        Image.new("RGB", (400, h), "white").save(p)
+        paths.append(p)
+    out = K.pad_uniform(paths, os.path.join(tmp, "out"))
+    hs = {Image.open(v).height for v in out.values()}
+    assert len(hs) == 1, f"the padded crops still differ in height: {hs}"
+    ws = {Image.open(v).width for v in out.values()}
+    assert len(ws) == 1, f"the padded crops differ in width: {ws}"
+
+
+def test_qa_deck_catches_unaligned_bands():
+    """The band check: two evidence strips of different heights must be
+    reported, because the whitespace above them jumps."""
+    import deck_kit as K
+    from PIL import Image
+    tmp = tempfile.mkdtemp()
+    d = K.Deck(theme_key="paper-warm", footer="f")
+    # two strips rendered at different heights -- exactly what happens when
+    # the crops come from pages with different line counts
+    for i, (h, boxh) in enumerate(((300, 1.4), (120, 0.7))):
+        shot = os.path.join(tmp, f"s{i}.png")
+        Image.new("RGB", (2400, h), "white").save(shot)
+        s, y = d.content(eyebrow="e", title=f"t{i}", cite="c")
+        K.shot(s, shot, 0, K.Inches(4.0), K.SLIDE_W, K.Inches(boxh))
+        K.txt(s, K.ML, K.Inches(6.0), K.Inches(8), K.Inches(0.3),
+              [[("原文 P1：图注", {})]], size=10.5, role="dk_caption")
+    p = os.path.join(tmp, "b.pptx")
+    d.save(p, check=False)
+    r = subprocess.run([sys.executable, os.path.join(HERE, "qa_deck.py"), p,
+                        "--no-render"], capture_output=True, text=True)
+    assert "band align" in r.stdout, "the band check did not fire:\n" + r.stdout
+    assert r.returncode != 0, "an unaligned deck passed the gate"
+
+
+def test_crop_context_above_and_below_can_differ():
+    """Too much context below is how a crop ends up carrying a reference list
+    instead of the passage."""
+    import pdf_shots
+    tmp = tempfile.mkdtemp()
+    pdf = make_pdf(os.path.join(tmp, "src.pdf"))
+    img, notes = pdf_shots.crop(pdf, 1, ["textual panorama is defined"],
+                                ctx_before=0, ctx_after=0)
+    assert img is not None, "; ".join(notes)
+    tall, notes2 = pdf_shots.crop(pdf, 1, ["textual panorama is defined"],
+                                  ctx_before=2, ctx_after=2)
+    assert tall is not None
+    assert tall.height > img.height, \
+        "ctx_before/ctx_after had no effect on the crop"
+
+
 # ------------------------------------------------------------------ main
 def main():
     print("build-academic-ppt selftest")
@@ -557,6 +616,12 @@ def main():
     check("stat row keeps values on one line", test_stat_row_keeps_values_on_one_line)
     check("footer text is the deck's own", test_footer_is_not_hardcoded)
     check("the documented example runs", test_documented_example_runs)
+    check("pad_uniform equalises the crop heights",
+          test_pad_uniform_gives_every_crop_the_same_height)
+    check("the gate catches unaligned evidence bands",
+          test_qa_deck_catches_unaligned_bands)
+    check("crop context above and below can differ",
+          test_crop_context_above_and_below_can_differ)
     section("brief")
     check("gate blocks an incomplete brief", test_brief_gate)
     check("research question derived from a source", test_brief_derives_rq_from_source)

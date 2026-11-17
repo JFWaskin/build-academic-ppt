@@ -199,7 +199,8 @@ def _pick_rect(page, needle, occ=None, col=None):
 
 
 def crop(path, page_no, needles, ctx=2, pad=16.0, x0=None, x1=None,
-         zoom=ZOOM, out=None, occ=None, col=None, verify=True):
+         zoom=ZOOM, out=None, occ=None, col=None, verify=True,
+         ctx_before=None, ctx_after=None):
     doc = fitz.open(path)
     page = doc[page_no - 1]
     rects = []
@@ -232,8 +233,12 @@ def crop(path, page_no, needles, ctx=2, pad=16.0, x0=None, x1=None,
         doc.close()
         return None, notes + ["needle not on any clustered line"]
 
-    lo = max(0, min(idx) - ctx)
-    hi = min(len(col_lines) - 1, max(idx) + ctx)
+    # the context above and below can differ: too much context below is how
+    # a crop ends up carrying a reference list instead of the passage
+    cb = ctx if ctx_before is None else ctx_before
+    ca = ctx if ctx_after is None else ctx_after
+    lo = max(0, min(idx) - cb)
+    hi = min(len(col_lines) - 1, max(idx) + ca)
     sel = col_lines[lo:hi + 1]
 
     seed = [L for L in sel if any(not (r & L[0]).is_empty for r in rects)] or sel
@@ -296,7 +301,8 @@ def cmd_shots(pdf, jobs_path, outdir, zoom=ZOOM, verify=True, manifest=True):
                           ctx=j.get("ctx", 2), pad=j.get("pad", 16),
                           x0=j.get("x0"), x1=j.get("x1"), zoom=zoom,
                           out=None, occ=j.get("occ"), col=j.get("col"),
-                          verify=verify)
+                          verify=verify, ctx_before=j.get("ctx_before"),
+                          ctx_after=j.get("ctx_after"))
         for n in notes:
             if "AMBIGUOUS" in n or "OUTSIDE" in n or "NO HIGHLIGHT" in n:
                 print(f"  !! {j['name']}: {n}")

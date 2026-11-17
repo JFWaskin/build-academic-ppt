@@ -48,6 +48,8 @@ HANG_PT = 14.0               # Chinese hanging punctuation may sit this far out
 CAPTION_FLOOR_PT = 10.5      # captions/labels/footers may go below this
 BODY_FLOOR_PT = 14.0         # body prose may not
 BODY_LONG_CHARS = 40         # a run this long is prose, not a label
+CAPTION_GAP_PT = 0.15 * 72   # a caption must clear its crop by 0.15in
+BAND_HEIGHT_PT = 0.05 * 72   # every evidence strip must be the same height
 AMBER_MIN = 40               # amber pixels a real highlight must have
 
 
@@ -145,6 +147,7 @@ def check(pptx, keep=False, do_render=True, min_body=BODY_FLOOR_PT,
 
     low, right, overlaps, floors = [], [], [], []
     over_img, over_frame, no_shot, no_cite, no_mark = [], [], [], [], []
+    bands, gaps = [], []
 
     # ---------- geometry from the pptx (exact) ----------
     for si, slide in enumerate(prs.slides, 1):
@@ -211,6 +214,26 @@ def check(pptx, keep=False, do_render=True, min_body=BODY_FLOOR_PT,
         elif not manifest:
             if not pics:
                 no_shot.append((si, ""))
+
+        # band geometry: the evidence strips must be the same height.
+        # Crops taken from different pages have different heights, so a
+        # full-width strip renders at a different height on every slide and
+        # the whitespace above the band jumps from slide to slide -- the deck
+        # visibly steps up and down. Pad the crops to a common aspect ratio
+        # (deck_kit.pad_uniform) and every band lines up.
+        # only a WIDE picture is an evidence band; a small inset is not
+        wide = [p for p in pics if (p[0][2] - p[0][0]) > 0.6 * slide_w_pt]
+        if wide:
+            pr = max(wide, key=lambda p: (p[0][2] - p[0][0]) * (p[0][3] - p[0][1]))
+            box = pr[0]
+            bands.append((si, round(box[1], 3), round(box[3], 3)))
+            # the caption must clear the image by a readable margin
+            for tr, sh in texts:
+                if (sh.name or "") == "dk_caption":
+                    gap_pt = tr[1] - box[3]
+                    if gap_pt < CAPTION_GAP_PT:
+                        gaps.append((si, round(gap_pt / 72, 3),
+                                     sh.text_frame.text[:24]))
 
         # highlight presence
         if require_highlight:
@@ -302,8 +325,28 @@ def check(pptx, keep=False, do_render=True, min_body=BODY_FLOOR_PT,
         for si, nm in no_mark[:8]:
             print(f"   p{si}  {nm}")
 
+    # band alignment: every evidence strip must be the same height, so the
+    # whitespace above it does not jump from slide to slide
+    band_issue = ""
+    if len(bands) >= 2:
+        heights = [b[2] - b[1] for b in bands]
+        spread = max(heights) - min(heights)
+        if spread > BAND_HEIGHT_PT:
+            band_issue = (f"the {len(bands)} evidence strips have different "
+                          f"heights (spread {spread/72:.2f}in) -- pad them to "
+                          f"a common aspect ratio with deck_kit.pad_uniform")
+            print(f"band align  : {band_issue}")
+            for si, t, b in bands:
+                print(f"   p{si}  top={t/72:.3f}in bottom={b/72:.3f}in "
+                      f"h={(b-t)/72:.3f}in")
+    if gaps:
+        print(f"caption gap : {len(gaps)} caption(s) closer than 0.15in to its crop")
+        for si, g, t in gaps[:8]:
+            print(f"   p{si}  {g:.3f}in  {t}")
+
     hard = bool(low or right or overlaps or over_img or over_frame or junk
-                or no_shot or [f for f in floors if f[2] == "HARD"] or no_mark)
+                or no_shot or [f for f in floors if f[2] == "HARD"] or no_mark
+                or band_issue or gaps)
     if keep:
         print(f"\nJPEGs kept in {outdir}")
         return (1 if hard else 0), outdir

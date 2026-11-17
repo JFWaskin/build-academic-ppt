@@ -30,6 +30,8 @@ The geometry check catches what a per-box bounds check cannot:
 | `below-content-band` | content below 6.95in |
 | `content-slide-without-screenshot` | the rule every content slide owes |
 | `content-slide-without-citation` | the other rule every content slide owes |
+| band align | evidence strips of different heights — the deck steps up and down |
+| caption gap | a caption closer than 0.15in to its crop, i.e. on the frame |
 
 Fix these before rendering — they are the cheapest defects to fix and the most
 disruptive when missed.
@@ -55,8 +57,19 @@ python3 scripts/qa_deck.py deck.pptx --require-highlight
 It flags: content in the footer band, text outside the right margin,
 intersecting text pairs, text over a screenshot, text escaping its frame, type
 below the floor, placeholder leftovers, slides missing a screenshot, content
-slides missing a citation, and (with `--require-highlight`) crops whose
-highlight has vanished.
+slides missing a citation, evidence strips that do not share a height, captions
+that crowd their crop, and (with `--require-highlight`) crops whose highlight
+has vanished.
+
+Two of the band checks came out of a fresh-eyes review that had to measure the
+rendered pixels to find them:
+
+- **band align.** A wide picture is an evidence band; a small inset is not.
+  Every band must have the same height, or the whitespace above the strips
+  jumps from slide to slide. `deck_kit.pad_uniform` fixes it.
+- **caption gap.** A caption must clear its crop by at least 0.15in. The
+  frame around a crop extends 0.045in past the image, so a caption 0.08in
+  below the image is sitting on the frame.
 
 Two of its thresholds are deliberate and should not be "fixed":
 

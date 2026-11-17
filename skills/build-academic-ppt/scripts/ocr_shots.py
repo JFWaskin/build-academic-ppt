@@ -306,7 +306,8 @@ def match_line(lines, needle):
 
 
 def crop_scanned(pdf, page_no, needles, ctx=2, zoom=ZOOM, lang="chi_sim+eng",
-                 out=None, tmpdir=None, verify=True, backend="auto"):
+                 out=None, tmpdir=None, verify=True, backend="auto",
+                 ctx_before=None, ctx_after=None):
     img = render_page(pdf, page_no, zoom)
     lines = ocr_lines(img, lang=lang, tmpdir=tmpdir,
                       tmpname=f"p{page_no}", backend=backend)
@@ -324,8 +325,12 @@ def crop_scanned(pdf, page_no, needles, ctx=2, zoom=ZOOM, lang="chi_sim+eng",
     if not hits:
         return None, notes
 
-    lo = max(0, min(hits) - ctx)
-    hi = min(len(lines) - 1, max(hits) + ctx)
+    # the context above and below can differ: too much context below is how
+    # a crop ends up carrying a reference list instead of the passage
+    cb = ctx if ctx_before is None else ctx_before
+    ca = ctx if ctx_after is None else ctx_after
+    lo = max(0, min(hits) - cb)
+    hi = min(len(lines) - 1, max(hits) + ca)
     sel = lines[lo:hi + 1]
 
     # the crop spans the whole text column so a neighbour line is not sliced

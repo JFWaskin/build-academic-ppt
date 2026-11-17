@@ -34,6 +34,25 @@ caption into the footer.
 > reads as a small picture floating in white; the same strip at full width
 > reads as an exhibit, and its text becomes legible from the back of a room.
 > The caption stays at the left margin under the band.
+>
+> **Every strip must be the same height.** Crops taken from different pages
+> have different line counts, so at full width they render at different
+> heights and the whitespace above them jumps from slide to slide — the deck
+> visibly steps up and down as you page through it. Pad the crops to a common
+> aspect ratio first:
+>
+> ```python
+> padded = deck_kit.pad_uniform(paths, "_shots/padded")
+> ```
+>
+> The shorter images are padded at the bottom with the mat colour, so the
+> passage stays where it was and every band is the same shape. Centre the
+> image in the band: a short crop then reads as a framed excerpt rather than
+> as a band with missing content.
+>
+> **A caption clears its crop by at least 0.15in.** The frame around a crop
+> extends 0.045in past the image, so a caption 0.08in below the image lands
+> on the frame.
 
 **Body above the band** — with a full-bleed band, the body text sits directly
 under the header and the space between the text and the strip is the exhibit

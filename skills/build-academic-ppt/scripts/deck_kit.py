@@ -387,6 +387,45 @@ def new_slide(prs, dark=False):
 
 
 # ------------------------------------------------------------------ images
+def pad_uniform(paths, out_dir, fill=None):
+    """Pad a set of crops to a COMMON aspect ratio so they can be laid out as
+    identical bands.
+
+    Crops taken from different pages have different heights, so a full-width
+    strip renders at a different height on every slide: the tops drift, the
+    captions stop forming a line, and the whitespace above the strip jumps
+    from slide to slide. Padding the shorter images (at the BOTTOM, so the
+    passage stays where it was) makes every band the same shape.
+
+    Returns {path: padded_path}.
+    """
+    t = theme()
+    # the theme stores colours as bare hex ("F1ECE2"); PIL wants "#RRGGBB"
+    fill = fill or t.bg_soft
+    if isinstance(fill, str) and not fill.startswith("#"):
+        fill = "#" + fill
+    imgs = [(p, Image.open(p).convert("RGB")) for p in paths]
+    if not imgs:
+        return {}
+    # the target is the tallest image's height, scaled to the widest width
+    w = max(im.width for _, im in imgs)
+    h = max(int(round(im.height * w / im.width)) for _, im in imgs)
+    os.makedirs(out_dir, exist_ok=True)
+    out = {}
+    for p, im in imgs:
+        if im.width == w and im.height == h:
+            out[p] = p
+            continue
+        scale = w / im.width
+        nh = int(round(im.height * scale))
+        canvas = Image.new("RGB", (w, h), fill)
+        canvas.paste(im.resize((w, nh), Image.LANCZOS), (0, 0))
+        dest = os.path.join(out_dir, os.path.basename(p))
+        canvas.save(dest)
+        out[p] = dest
+    return out
+
+
 def shot(slide, path, x, y, w, h, caption=None, valign="center",
          cap_w=None, cap_size=None, dark=False, label=None):
     """Place a screenshot fitted inside (w,h), preserving aspect, framed and

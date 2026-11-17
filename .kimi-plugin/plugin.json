@@ -1,0 +1,24 @@
+{
+  "name": "build-academic-ppt",
+  "version": "1.0.0",
+  "description": "Build or revise academic presentation decks from papers, monographs, reports and scanned sources: every claim traceable to a highlighted passage in the real source, with a mandatory intake brief, seven tested visual styles, and a mechanical QA gate.",
+  "author": {
+    "name": "Jonathan F. Waskin",
+    "email": "JFWaskin@users.noreply.github.com",
+    "url": "https://github.com/JFWaskin"
+  },
+  "homepage": "https://github.com/JFWaskin/build-academic-ppt",
+  "repository": "https://github.com/JFWaskin/build-academic-ppt",
+  "license": "MIT",
+  "keywords": [
+    "presentation",
+    "pptx",
+    "academic",
+    "slides",
+    "citation",
+    "screenshot",
+    "chinese"
+  ],
+  "skills": "./skills/",
+  "skillInstructions": "Kimi Code tool mapping for build-academic-ppt:\n\n- Run the skill's Python scripts (brief.py, deck_kit.py, pdf_shots.py, ocr_shots.py, qa_deck.py, selftest.py) with Kimi Code's `Bash` tool, from the skill's `scripts/` directory.\n- When the skill asks the human a question (the intake brief, the visual style, the research question), call Kimi Code's `AskUserQuestion` tool with 1 question and 2-4 concrete options when possible. Do not render those choices as plain assistant text unless `AskUserQuestion` is unavailable or the session is in auto permission mode. Put the recommended option first and suffix its label with `(Recommended)`.\n- When the skill refers to the `Task` tool (general-purpose) or asks you to dispatch a fresh-eyes reviewer, use Kimi Code's `Agent` tool with a Kimi subagent type. For a read-only review that has not seen the deck, use `Agent` with `subagent_type: \"explore\"`.\n- When the skill refers to `TodoWrite`, use Kimi Code's `TodoList` tool.\n- When the skill refers to the `Skill` tool, use Kimi Code's native `Skill` tool.\n- Use Kimi Code's `Read`, `Write`, `Edit`, `Bash`, `Grep`, `Glob`, `FetchURL`, and `WebSearch` tools by their actual exposed names.\n- The QA loop requires a reviewer that did NOT write the deck. That step is mandatory."
+}

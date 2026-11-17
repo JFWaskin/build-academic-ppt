@@ -105,7 +105,37 @@ git clone --depth 1 https://github.com/JFWaskin/build-academic-ppt.git
 cp -R build-academic-ppt/skills/build-academic-ppt ~/.claude/skills/
 ```
 
-### Requirements
+### Other agent harnesses
+
+The skill is **plain files** — a `SKILL.md` with YAML frontmatter, a
+`references/` folder, and Python scripts. No Claude-specific tooling, no
+network calls at build time, no API keys. Any harness that can load a skill
+directory can load it.
+
+| Harness | Entry point | Install |
+|---|---|---|
+| **Claude Code** | `.claude-plugin/plugin.json` + `marketplace.json` | `/plugin install build-academic-ppt --marketplace JFWaskin/build-academic-ppt`, or `./install.sh` |
+| **MiniMax Code** | same skill directory | `./install.sh` (→ `~/.minimax/skills/`) |
+| **Codex** | `.codex-plugin/plugin.json` (`"skills": "./skills/"`) | plugin manager, or `./install.sh` (→ `~/.codex/skills/`) |
+| **Cursor** | `.cursor-plugin/plugin.json` | `/add-plugin build-academic-ppt`, or `./install.sh` |
+| **Gemini CLI** | `gemini-extension.json` + `GEMINI.md` | `gemini extensions install <repo>`, or `./install.sh` |
+| **Kimi Code** | `.kimi-plugin/plugin.json` + inline tool mapping | `/plugins` → marketplace, or `./install.sh` |
+| **OpenCode** | `.opencode/plugins/build-academic-ppt.js` | add to the `plugin` array in `opencode.json`, or `./install.sh` |
+| **pi** | `.pi/extensions/build-academic-ppt.ts` | marketplace, or `./install.sh` |
+| **Devin** | `.devin-plugin/plugin.json` | `./install.sh` |
+| **Hermes** | `.hermes-plugin/plugin.yaml` | `agy plugin install <repo>` |
+| **Any harness reading `AGENTS.md`** | `AGENTS.md` in the repo root | point it at the repo |
+
+`./install.sh` detects which of these are present on the machine and installs
+into each of them; it never creates a directory for a harness that is not
+installed.
+
+The tool mapping (which tool is "ask the human", which is "dispatch a
+fresh-eyes reviewer") is tabulated in `AGENTS.md`, and Kimi's is inlined in
+its manifest. **The one thing every harness must be able to do is run a
+separate reviewer that has not written the deck** — the QA loop depends on it.
+
+## Requirements
 
 | tool | needed for | install |
 |---|---|---|

@@ -1,0 +1,22 @@
+{
+  "name": "build-academic-ppt",
+  "version": "1.0.0",
+  "description": "Build or revise academic presentation decks from papers, monographs, reports and scanned sources: every claim traceable to a highlighted passage in the real source, with a mandatory intake brief, seven tested visual styles, and a mechanical QA gate.",
+  "author": {
+    "name": "Jonathan F. Waskin",
+    "email": "JFWaskin@users.noreply.github.com",
+    "url": "https://github.com/JFWaskin"
+  },
+  "homepage": "https://github.com/JFWaskin/build-academic-ppt",
+  "repository": "https://github.com/JFWaskin/build-academic-ppt",
+  "license": "MIT",
+  "keywords": [
+    "presentation",
+    "pptx",
+    "academic",
+    "slides",
+    "citation",
+    "screenshot",
+    "chinese"
+  ]
+}

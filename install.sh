@@ -49,7 +49,10 @@ step() { printf '\n==> %s\n' "$*"; }
 # ---------------------------------------------------------------- uninstall
 if [ "$UNINSTALL" -eq 1 ]; then
   step "removing $SKILL_NAME"
-  for d in "$DEST_BASE/$SKILL_NAME" "$MCODEX_DIR/$SKILL_NAME"; do
+  for d in "$DEST_BASE/$SKILL_NAME" "$MCODEX_DIR/$SKILL_NAME" \
+           "$HOME/.codex/skills/$SKILL_NAME" "$HOME/.config/opencode/skills/$SKILL_NAME" \
+           "$HOME/.cursor/skills/$SKILL_NAME" "$HOME/.gemini/skills/$SKILL_NAME" \
+           "$HOME/.kimi/skills/$SKILL_NAME" "$HOME/.pi/skills/$SKILL_NAME"; do
     if [ -d "$d" ]; then
       mv "$d" "$d.backup.$(date +%Y%m%dT%H%M%S)" && say "  moved $d to a timestamped backup"
     fi
@@ -246,9 +249,25 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
 fi
 
 # ---------------------------------------------------------------- install
+# The skill is plain files, so every harness that can load a skill directory
+# can load it. A harness is only targeted when its home directory exists on
+# this machine -- otherwise the installer would litter empty directories.
 step "installing"
-for base in "$DEST_BASE" "$MCODEX_DIR"; do
+TARGETS="$DEST_BASE
+$MCODEX_DIR
+$HOME/.codex/skills
+$HOME/.config/opencode/skills
+$HOME/.cursor/skills
+$HOME/.gemini/skills
+$HOME/.kimi/skills
+$HOME/.pi/skills"
+INSTALLED=""
+for base in $TARGETS; do
   [ -z "$base" ] && continue
+  case "$base" in
+    "$DEST_BASE"|"$MCODEX_DIR") : ;;                 # always install these two
+    *) [ -d "$(dirname "$base")" ] || continue ;;      # harness not installed here
+  esac
   mkdir -p "$base"
   dest="$base/$SKILL_NAME"
   if [ -d "$dest" ]; then
@@ -259,7 +278,12 @@ for base in "$DEST_BASE" "$MCODEX_DIR"; do
   cp -R "$SKILL_SRC" "$dest"
   find "$dest" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null
   say "  installed -> $dest"
+  INSTALLED="$INSTALLED $dest"
 done
+if [ -z "$INSTALLED" ]; then
+  say "  nothing installed -- no target directory could be used"
+  exit 1
+fi
 
 # ---------------------------------------------------------------- deps
 step "dependency check"
@@ -302,6 +326,7 @@ cat <<EOF
 
 Next
   1. restart the agent so it picks the skill up
+     (installed into:$INSTALLED)
   2. ask for a deck, e.g.:
        用 $SKILL_NAME 把我的论文 PDF 做成 20 页中文汇报 PPT，
        先问我主题、要点、研究问题和风格，给我看样式样张。

@@ -1,0 +1,30 @@
+{
+  "name": "build-academic-ppt",
+  "version": "1.0.0",
+  "description": "Build academic presentation decks from papers, monographs, reports and scanned sources, with a mandatory intake brief, seven visual styles, and a mechanical QA gate.",
+  "type": "module",
+  "main": ".opencode/plugins/build-academic-ppt.js",
+  "keywords": [
+    "pi-package",
+    "skills",
+    "presentation",
+    "pptx",
+    "academic",
+    "slides",
+    "citation"
+  ],
+  "homepage": "https://github.com/JFWaskin/build-academic-ppt",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JFWaskin/build-academic-ppt.git"
+  },
+  "license": "MIT",
+  "pi": {
+    "extensions": [
+      "./.pi/extensions/build-academic-ppt.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  }
+}

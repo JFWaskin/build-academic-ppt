@@ -48,30 +48,61 @@ python3 skills/build-academic-ppt/scripts/style_previews.py --sheets
 
 ## Install
 
-### As a Claude Code plugin
+### 中国大陆：一行命令，自动降级
+
+GitHub 在境内的可达性不稳定，而且主站、codeload、API、raw CDN 各坏各的，
+某个镜像今天能用下周可能就没了。所以安装器**按顺序试遍所有通道**，
+谁先成功用谁，并打印出实际走的是哪条：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JFWaskin/build-academic-ppt/main/install.sh | bash
+```
+
+如果 raw 也进不去，先手动拿到 `install.sh`（或整包），再本地运行：
+
+```bash
+BUILD_ACADEMIC_PPT_REPO=<你在码云上的镜像>/<仓库名> ./install.sh
+```
+
+安装器依次尝试：
+
+| 顺序 | 通道 |
+|---|---|
+| 1 | `codeload.github.com` 直连 |
+| 2 | `github.com/…/archive` 直连 |
+| 3 | 代理镜像（ghfast.top / gh-proxy.com / ghproxy.net / moeyy / gitmirror） |
+| 4 | **jsDelivr CDN**（与 GitHub 不同的网络路径，有境内节点） |
+| 5 | `git clone --depth 1` |
+
+下载后会**校验包完整性**（文件齐全 + 每个脚本能解析），校验不过就换下一条路，
+不会把一个坏包装进去。
+
+装好后两个位置都会有：
+
+- `~/.claude/skills/build-academic-ppt/` —— Claude Code
+- `~/.minimax/skills/build-academic-ppt/` —— MiniMax Code
+
+常用参数：
+
+```bash
+./install.sh --check        # 只验证下载，不安装
+./install.sh --uninstall    # 卸载（旧版会留时间戳备份）
+```
+
+### 作为 Claude Code 插件
 
 ```
 /plugin install build-academic-ppt --marketplace JFWaskin/build-academic-ppt
 ```
 
-or, to add the marketplace first and install from it:
+这条路线依赖 Claude Code 的 marketplace 机制，需要访问 `api.github.com`，
+**境内可能失败**——请优先用上面那条一键命令。
 
-```
-/plugin marketplace add JFWaskin/build-academic-ppt
-/plugin install build-academic-ppt
-```
-
-### As a plain skill directory
+### 只要 skill 目录
 
 ```bash
-git clone https://github.com/JFWaskin/build-academic-ppt.git
+git clone --depth 1 https://github.com/JFWaskin/build-academic-ppt.git
 cp -R build-academic-ppt/skills/build-academic-ppt ~/.claude/skills/
-```
-
-or
-
-```bash
-./install.sh          # copies the skill and checks the dependencies
 ```
 
 ### Requirements

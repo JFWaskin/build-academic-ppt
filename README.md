@@ -276,16 +276,45 @@ python3 pdf_shots.py shots paper.pdf jobs.json _shots/
 writes `manifest.json` next to the images with the page number of every crop:
 read the page number from there, never hardcode it.
 
+## Keeping it current
+
+A skill installed by copying files is tracked by no package manager, so
+nothing else would tell you that `~/.claude/skills` is three revisions
+behind — and the failure is quiet: the deck still builds, it just uses the
+old rules.
+
+```bash
+python3 skills/build-academic-ppt/scripts/version_check.py     # report
+python3 skills/build-academic-ppt/scripts/version_check.py --upgrade
+bash    skills/build-academic-ppt/scripts/auto_upgrade.sh       # check, upgrade, verify, roll back
+```
+
+`auto_upgrade.sh` upgrades, runs the self-test on the new copy, and **rolls
+back to the previous one if it fails** — a broken release can never leave the
+machine with a broken skill.
+
+The check compares a hash over the **whole package** (every file, sorted by
+path), not just `SKILL.md`: a release can change the scripts and leave
+`SKILL.md` byte-identical, and a check that only watched the latter would
+say "current" while the behaviour on disk was old.
+
+Everything is fetched **pinned to a commit sha**, resolved before the
+download. A branch URL is served from a CDN cache that can lag a push by
+minutes — measured: both codeload and jsDelivr served the previous tarball
+right after a push — and a version check that reads a cached file reports
+"current" when a new version exists.
+
 ## Test
 
 ```bash
 python3 skills/build-academic-ppt/scripts/selftest.py
 ```
 
-20 checks covering the theme registry and its contrast audit, the theme switch,
+32 checks covering the theme registry and its contrast audit, the theme switch,
 the `lang` attribute on every run, the unit guards, the geometry check, the
 stat row, the brief gate, research-question derivation, crop highlighting and
-ambiguity, and the QA gate on both a clean and a broken deck.
+ambiguity, the OCR backends, the user guide, the VERSION stamp, and the QA
+gate on both a clean and a broken deck.
 
 ## 中文说明
 

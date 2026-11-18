@@ -132,13 +132,27 @@ The installer tries several download routes in turn (GitHub direct, mirrors,
 the jsDelivr CDN, a shallow git clone) so it still works when GitHub is
 unreachable, and it verifies the package before installing it.
 
+## Keeping it current
+
+```bash
+python3 skills/build-academic-ppt/scripts/version_check.py   # report
+bash    skills/build-academic-ppt/scripts/auto_upgrade.sh     # upgrade, verify, roll back
+```
+
+`auto_upgrade.sh` upgrades, runs the self-test on the new copy, and rolls
+back to the previous one if it fails. The comparison is a hash over the
+**whole package**, and the remote is fetched **pinned to a commit sha** --
+a branch URL is served from a CDN cache that can lag a push by minutes, and
+a version check that reads a cached file reports "current" when a new
+version exists.
+
 ## Self-test
 
 ```bash
 python3 skills/build-academic-ppt/scripts/selftest.py
 ```
 
-29 checks, each one a behaviour that used to be broken.
+32 checks, each one a behaviour that used to be broken.
 
 ## License
 

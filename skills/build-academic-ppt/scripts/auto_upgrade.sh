@@ -84,7 +84,13 @@ for d in "$HOME/.claude/.skill-backups" "$HOME/.minimax/.skill-backups" \
   if [ -n "$last" ]; then BACKUP="$last"; break; fi
 done
 
-if ! python3 "$HERE/version_check.py" --upgrade; then
+# version_check.py --upgrade returns:
+#   0  nothing to do
+#   1  an upgrade was applied
+#   2  the upgrade could not be applied
+python3 "$HERE/version_check.py" --upgrade
+UP_RC=$?
+if [ "$UP_RC" -eq 2 ]; then
   say "the upgrade could not be applied"
   exit 2
 fi

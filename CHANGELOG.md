@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] — 2026-11-18
+
+### Fixed
+
+- **The version check compared the wrong thing.** It compared the sha256 of
+  `SKILL.md`, so a release that changed only the scripts read as "current"
+  while the behaviour on disk was old. It now compares a hash over the WHOLE
+  package (every file, sorted by path, path included in the identity), and
+  both sides of the comparison are computed the same way.
+- **The remote side was fetched as two files** while the local side was the
+  whole package, so the two hashes were never comparable. The remote package
+  is now taken as a whole: one tarball, or -- the China-friendly route -- file
+  by file from jsDelivr's data API.
+- **The auto-upgrade script treated a successful upgrade as a failure**,
+  because `version_check.py --upgrade` returns 1 to mean "an upgrade was
+  applied". The verification step never ran.
+
 ## [1.1.0] — 2026-11-18
 
 ### Added

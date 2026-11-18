@@ -83,8 +83,63 @@ def _curl(url, binary=False):
     return r.stdout if binary else r.stdout.decode("utf-8", errors="ignore")
 
 
-def remote_files(sha=None):
-    """Return {'VERSION': text, 'SKILL.md': bytes, 'source': label} or None.
+def _package_from_tarball(blob, label):
+    """{relpath: bytes} for the whole skill package inside a tarball."""
+    try:
+        tf = tarfile.open(fileobj=io.BytesIO(blob), mode="r:gz")
+        files = {}
+        marker = f"/skills/{SKILL_NAME}/"
+        for m in tf.getmembers():
+            if not m.isfile() or marker not in "/" + m.name:
+                continue
+            rel = m.name.split(marker, 1)[1]
+            if any(part in SKIP_NAMES for part in rel.split("/")):
+                continue
+            files[rel] = tf.extractfile(m).read()
+        tf.close()
+        if files:
+            return files, label
+    except Exception:
+        pass
+    return None, None
+
+
+def _package_from_jsdelivr(sha):
+    """The whole package from jsDelivr, file by file.
+
+    jsDelivr has a mainland node and is not GitHub at all, which makes it the
+    most reliable route from inside China -- but it serves one file per
+    request, so the file list comes from its data API first.
+    """
+    listing = _curl(f"https://data.jsdelivr.com/v1/packages/gh/{REPO}@{sha}"
+                    f"?structure=flat")
+    if not listing:
+        return None, None
+    try:
+        entries = json.loads(listing).get("files", [])
+    except Exception:
+        return None, None
+    marker = f"/skills/{SKILL_NAME}/"
+    files = {}
+    for e in entries:
+        name = e.get("name", "")
+        if marker not in "/" + name:
+            continue
+        rel = name.split(marker, 1)[1]
+        if any(part in SKIP_NAMES for part in rel.split("/")):
+            continue
+        blob = _curl(f"https://cdn.jsdelivr.net/gh/{REPO}@{sha}/"
+                     f"skills/{SKILL_NAME}/{rel}", binary=True)
+        if blob is None:
+            continue
+        files[rel] = blob
+    if files:
+        return files, f"jsDelivr CDN @ {sha[:8]}"
+    return None, None
+
+
+def remote_package(sha=None):
+    """Return ({relpath: bytes}, label) for the remote package, or (None, None).
 
     Everything is fetched PINNED to a commit sha when one is known. A branch
     URL is served from a CDN cache that can lag a push by minutes -- both
@@ -93,64 +148,44 @@ def remote_files(sha=None):
     when a new version exists. That is the worst possible failure for this
     tool, so the branch path is only used when the sha cannot be resolved.
     """
+    bust = str(int(time.time()))
     if sha:
-        base = f"https://cdn.jsdelivr.net/gh/{REPO}@{sha}/skills/{SKILL_NAME}"
-        version = _curl(f"{base}/VERSION")
-        skill = _curl(f"{base}/SKILL.md", binary=True)
-        if skill:
-            return {"VERSION": (version or "").strip(), "SKILL.md": skill,
-                    "source": f"jsDelivr CDN @ {sha[:8]}",
-                    "no_version": version is None}
-        # pinned codeload
+        # one request, the whole package
         blob = _curl(f"https://codeload.github.com/{REPO}/tar.gz/{sha}",
                       binary=True)
         if blob:
-            got = _from_tarball(blob, "codeload.github.com @ " + sha[:8])
-            if got:
-                return got
+            files, label = _package_from_tarball(
+                blob, f"codeload.github.com @ {sha[:8]}")
+            if files:
+                return files, label
+        # the China-friendly route: jsDelivr, file by file
+        files, label = _package_from_jsdelivr(sha)
+        if files:
+            return files, label
+        # then the proxies
+        for m in MIRRORS:
+            blob = _curl(f"{m}/{REPO}/archive/{sha}.tar.gz", binary=True)
+            if blob:
+                files, label = _package_from_tarball(
+                    blob, f"proxy {m}")
+                if files:
+                    return files, label
 
-    # branch fallback: cache-bust the CDN
-    bust = str(int(time.time()))
-    base = f"https://cdn.jsdelivr.net/gh/{REPO}@{REF}/skills/{SKILL_NAME}"
-    version = _curl(f"{base}/VERSION?cb={bust}")
-    skill = _curl(f"{base}/SKILL.md?cb={bust}", binary=True)
-    if skill:
-        return {"VERSION": (version or "").strip(), "SKILL.md": skill,
-                "source": "jsDelivr CDN (branch, cache-busted)",
-                "no_version": version is None}
-
-    for prefix in ["", *MIRRORS]:
-        url = (f"{prefix}/" if prefix else "") + \
-            f"{REPO}/archive/refs/heads/{REF}.tar.gz?cb={bust}"
-        blob = _curl(url, binary=True)
-        if not blob:
-            continue
-        got = _from_tarball(blob, ("codeload.github.com" if not prefix
-                                   else f"proxy {prefix}") + " (branch)")
-        if got:
-            return got
-    return None
-
-
-def _from_tarball(blob, label):
-    try:
-        tf = tarfile.open(fileobj=io.BytesIO(blob), mode="r:gz")
-        ver = None
-        sk = None
-        for m in tf.getmembers():
-            if not m.isfile():
-                continue
-            if m.name.endswith(f"/skills/{SKILL_NAME}/VERSION"):
-                ver = tf.extractfile(m).read().decode("utf-8", "ignore").strip()
-            elif m.name.endswith(f"/skills/{SKILL_NAME}/SKILL.md"):
-                sk = tf.extractfile(m).read()
-        tf.close()
-        if sk:
-            return {"VERSION": ver or "", "SKILL.md": sk, "source": label,
-                    "no_version": ver is None}
-    except Exception:
-        pass
-    return None
+    # branch fallback, cache-busted
+    blob = _curl(f"https://codeload.github.com/{REPO}/tar.gz/refs/heads/"
+                 f"{REF}?cb={bust}", binary=True)
+    if blob:
+        files, label = _package_from_tarball(blob, "codeload (branch)")
+        if files:
+            return files, label
+    for m in MIRRORS:
+        blob = _curl(f"{m}/{REPO}/archive/refs/heads/{REF}.tar.gz?cb={bust}",
+                      binary=True)
+        if blob:
+            files, label = _package_from_tarball(blob, f"proxy {m}")
+            if files:
+                return files, label
+    return None, None
 
 
 def remote_commit():
@@ -176,6 +211,45 @@ def sha256(data):
     return hashlib.sha256(data).hexdigest()
 
 
+SKIP_NAMES = ("INSTALL.json", ".DS_Store", "__pycache__")
+
+
+def package_hash(files):
+    """One hash for a whole package.
+
+    Comparing SKILL.md alone is not enough: a release can change the scripts
+    and leave SKILL.md byte-identical, and the check would then say "current"
+    while the behaviour on disk is old. The hash covers every file, sorted by
+    path, so the path itself is part of the identity.
+    """
+    h = hashlib.sha256()
+    for rel in sorted(files):
+        if any(part in SKIP_NAMES for part in rel.split("/")):
+            continue
+        h.update(rel.encode("utf-8"))
+        h.update(b"\0")
+        h.update(files[rel])
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def local_package(root):
+    """{relpath: bytes} for an installed or checked-out package."""
+    out = {}
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_NAMES]
+        for fn in filenames:
+            if fn in SKIP_NAMES:
+                continue
+            full = os.path.join(dirpath, fn)
+            rel = os.path.relpath(full, root)
+            try:
+                out[rel] = open(full, "rb").read()
+            except OSError:
+                pass
+    return out
+
+
 def local_state(base):
     d = os.path.join(os.path.expanduser(base), SKILL_NAME)
     sk = os.path.join(d, "SKILL.md")
@@ -192,8 +266,8 @@ def local_state(base):
             stamp = json.load(open(sf, encoding="utf-8"))
         except Exception:
             pass
-    return {"dir": d, "version": ver, "sha": sha256(open(sk, "rb").read()),
-            "stamp": stamp}
+    return {"dir": d, "version": ver,
+            "sha": package_hash(local_package(d)), "stamp": stamp}
 
 
 # ----------------------------------------------------------------- upgrade
@@ -252,14 +326,21 @@ def main(argv=None):
     remote_sha = None if args.no_network else remote_commit()
     if remote_sha:
         say(f"remote commit: {remote_sha}")
-    remote = None if args.no_network else remote_files(remote_sha)
+    remote_pkg, remote_label = (None, None) if args.no_network \
+        else remote_package(remote_sha)
+    remote = None
+    if remote_pkg:
+        ver = remote_pkg.get("VERSION", b"")
+        remote = {"VERSION": ver.decode("utf-8", "ignore").strip()
+                  if isinstance(ver, bytes) else ver,
+                  "SKILL.md": remote_pkg.get("SKILL.md", b""),
+                  "source": remote_label,
+                  "hash": package_hash(remote_pkg)}
     if remote is None and not args.no_network:
         say("could not reach the remote -- the state is UNKNOWN")
         say("  (this is a network verdict, not a verdict on the install)")
         return 2
-    if remote and remote.get("no_version"):
-        say("the remote has no VERSION file -- it predates the version stamp")
-        say("comparing content hashes instead")
+
     if remote:
         say(f"remote {remote['VERSION'] or '(no VERSION)'}  "
             f"(fetched via {remote['source']})")
@@ -271,7 +352,7 @@ def main(argv=None):
     for name, st in installs:
         if remote is None:
             status = "unknown"
-        elif st["sha"] == sha256(remote["SKILL.md"]):
+        elif st["sha"] == remote["hash"]:
             status = "current"
         else:
             status = "behind"

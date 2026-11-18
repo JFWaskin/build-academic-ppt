@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-11-18
+
+### Added
+
+- **`scripts/version_check.py`** — reports, per harness, whether the installed
+  copy is current. It compares two axes: the `VERSION` file and the sha256 of
+  `SKILL.md`, which is what actually decides behaviour. A skill installed by
+  copying files is tracked by no package manager, so nothing else would tell
+  you that `~/.claude/skills` is three revisions behind — and the failure is
+  quiet: the deck still builds, it just uses the old rules.
+- **`scripts/auto_upgrade.sh`** — check, upgrade, verify, and (if the new
+  copy fails the self-test) roll back. The order matters: a copy that fails
+  the self-test never survives.
+- **`VERSION` inside the skill package**, and an `INSTALL.json` stamp written
+  by the installer (version, commit, install time, which route served it).
+
+### Fixed
+
+- **The download could serve a stale package.** A branch URL
+  (`refs/heads/main`) is served from a CDN cache that lags a push by minutes —
+  measured: both codeload and jsDelivr served the previous tarball minutes
+  after the push, and a version check reading a cached file would have
+  reported "current" when a new version existed. The installer and the version
+  check now **resolve the commit first and fetch pinned to it**; a commit sha
+  is immutable, so it cannot be stale. Branch URLs remain as a fallback, with
+  a cache-busting query.
+
 ## [1.0.0] — 2026-11-17
 
 First public release. The skill began as a private toolkit used to build

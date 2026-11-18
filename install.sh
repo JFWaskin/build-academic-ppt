@@ -114,30 +114,59 @@ LOCAL_SKILL="$LOCAL_ROOT/skills/$SKILL_NAME"
 step "downloading $SKILL_NAME"
 say "repo: $REPO  ref: $REF"
 
+# Resolve the exact commit FIRST, then fetch the package PINNED to it.
+#
+# A branch URL (refs/heads/main) is served from a CDN cache that can lag a
+# push by minutes -- measured: both codeload and jsDelivr served a stale
+# tarball after the push. A commit sha is immutable, so pinning to it cannot
+# be stale, and it also tells us exactly what was installed.
+REMOTE_SHA="${BUILD_ACADEMIC_PPT_COMMIT:-}"
+if [ -z "$REMOTE_SHA" ]; then
+  say "  resolving the remote commit"
+  REMOTE_SHA="$(git ls-remote "https://github.com/$REPO.git" "$REF" 2>/dev/null | cut -f1)"
+  if [ -z "$REMOTE_SHA" ]; then
+    REMOTE_SHA="$(curl -fsSL --connect-timeout 8 --max-time "$TIMEOUT" \
+      "https://api.github.com/repos/$REPO/commits/$REF" 2>/dev/null \
+      | python3 -c "import json,sys; print(json.load(sys.stdin).get('sha',''))" 2>/dev/null)"
+  fi
+  [ -n "$REMOTE_SHA" ] && say "  remote commit: $REMOTE_SHA" \
+                      || say "  could not resolve the commit; falling back to the branch"
+fi
+
+
 if [ -f "$LOCAL_SKILL/SKILL.md" ]; then
   mkdir -p "$WORK/pkg/skills"
   cp -R "$LOCAL_SKILL" "$WORK/pkg/skills/$SKILL_NAME"
   USED_ROUTE="the package bundled with this installer"
   say "  ok -- the package bundled with this installer (no download needed)"
 else
+# the tarball paths differ depending on whether the commit is known
+if [ -n "$REMOTE_SHA" ]; then
+  PIN="tar.gz/$REMOTE_SHA"
+  ARCH="archive/$REMOTE_SHA.tar.gz"
+else
+  PIN="tar.gz/refs/heads/$REF"
+  ARCH="archive/refs/heads/$REF.tar.gz"
+fi
+
 # 0. an operator-provided mirror repo (a Gitee mirror, say) wins outright
 if [ "$REPO" != "JFWaskin/build-academic-ppt" ]; then
-  try_url "https://codeload.github.com/$REPO/tar.gz/refs/heads/$REF" "codeload (mirror repo)"
+  try_url "https://codeload.github.com/$REPO/$PIN" "codeload (mirror repo)"
 fi
 
 # 1. GitHub directly
 if [ -z "$USED_ROUTE" ]; then
-  try_url "https://codeload.github.com/$REPO/tar.gz/refs/heads/$REF" "codeload.github.com (direct)"
+  try_url "https://codeload.github.com/$REPO/$PIN" "codeload.github.com (pinned)"
 fi
 if [ -z "$USED_ROUTE" ]; then
-  try_url "https://github.com/$REPO/archive/refs/heads/$REF.tar.gz" "github.com archive (direct)"
+  try_url "https://github.com/$REPO/$ARCH" "github.com archive (pinned)"
 fi
 
 # 2. proxies, in order
 if [ -z "$USED_ROUTE" ]; then
   while IFS= read -r m; do
     [ -z "$m" ] && continue
-    try_url "$m/$REPO/archive/refs/heads/$REF.tar.gz" "proxy $m" && break
+    try_url "$m/$REPO/$ARCH" "proxy $m" && break
   done <<EOF
 $MIRRORS
 EOF
@@ -310,7 +339,7 @@ for base in $TARGETS; do
   {
     printf '{\n'
     printf '  "version": "%s",\n' "$(cat "$dest/VERSION" 2>/dev/null || echo unknown)"
-    printf '  "commit": "%s",\n' "${BUILD_ACADEMIC_PPT_COMMIT:-unknown}"
+    printf '  "commit": "%s",\n' "${REMOTE_SHA:-unknown}"
     printf '  "installed_at": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     printf '  "source": "%s",\n' "$USED_ROUTE"
     printf '  "repo": "%s",\n' "$REPO"

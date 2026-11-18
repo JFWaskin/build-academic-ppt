@@ -101,6 +101,15 @@ def test_themes():
         assert t.fonts()["serif_cn"] and t.fonts()["sans_en"]
 
 
+def test_the_version_file_is_shipped():
+    """The version file is what the upgrade check compares against."""
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    v = os.path.join(root, "VERSION")
+    assert os.path.isfile(v), "VERSION is missing from the skill package"
+    body = open(v, encoding="utf-8").read().strip()
+    assert body and body[0].isdigit(), "VERSION does not start with a version number"
+
+
 def test_the_user_guide_is_shipped():
     """The walkthrough is part of the deliverable: it is what a user is handed
     when they ask how this works."""
@@ -656,6 +665,7 @@ def main():
     check("mat/ink pairs legible in every style", test_theme_contrast_pairs)
     check("the theme lookup answers to both names", test_theme_api_names)
     check("the user guide ships with the skill", test_the_user_guide_is_shipped)
+    check("the VERSION file ships with the skill", test_the_version_file_is_shipped)
     section("deck_kit")
     check("theme switch changes the output", test_theme_switch_actually_switches)
     check("every run carries lang=zh-CN", test_lang_attribute_on_every_run)

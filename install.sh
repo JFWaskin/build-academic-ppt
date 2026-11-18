@@ -306,6 +306,17 @@ for base in $TARGETS; do
   fi
   cp -R "$SKILL_SRC" "$dest"
   find "$dest" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null
+  # stamp the install so the upgrade check can tell what is running where
+  {
+    printf '{\n'
+    printf '  "version": "%s",\n' "$(cat "$dest/VERSION" 2>/dev/null || echo unknown)"
+    printf '  "commit": "%s",\n' "${BUILD_ACADEMIC_PPT_COMMIT:-unknown}"
+    printf '  "installed_at": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '  "source": "%s",\n' "$USED_ROUTE"
+    printf '  "repo": "%s",\n' "$REPO"
+    printf '  "ref": "%s"\n' "$REF"
+    printf '}\n'
+  } > "$dest/INSTALL.json"
   say "  installed -> $dest"
   INSTALLED="$INSTALLED $dest"
 done

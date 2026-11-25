@@ -60,7 +60,7 @@ This is the field that most often gets faked, so it gets its own rules.
 | What the human said | What it is | What to do |
 |---|---|---|
 | An explicit question in the source's own words | the research question | use it verbatim, mark `derived` |
-| A topic ("翻译批评中的功能主义") | a topic, not a question | derive the question from the source; confirm it back to them |
+| A topic ("城市更新中的功能主义") | a topic, not a question | derive the question from the source; confirm it back to them |
 | A claim ("功能主义无法解释语篇层的偏移") | a finding, not a question | derive the question that the finding answers |
 | A vague phrase ("我想讲讲我的研究") | neither | ask again (round 2), then derive from what they gave you |
 

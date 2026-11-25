@@ -322,7 +322,7 @@ def test_brief_derives_rq_from_source():
     docx = os.path.join(tmp, "s.docx")
     import docx as D
     d = D.Document()
-    d.add_paragraph("以功能主义视角重估翻译批评")
+    d.add_paragraph("以功能主义视角重估城市更新")
     d.add_paragraph("研究问题：译文在哪些可指认的语言层级与原文发生偏移？")
     d.save(docx)
     b = brief.load(os.path.join(tmp, "b.json"))

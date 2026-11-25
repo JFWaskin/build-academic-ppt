@@ -103,7 +103,7 @@ an honest gap is more useful than a fabricated question.
 ## Recording
 
 ```bash
-python3 scripts/brief.py record --key title --value "以译作为中心的翻译批评：六条文本分析路径" --source given
+python3 scripts/brief.py record --key title --value "城市更新的三种解释框架" --source given
 python3 scripts/brief.py record --key key_points --value '["偏移可分层定位","证据强度随路径而变"]' --source given
 python3 scripts/brief.py status
 ```

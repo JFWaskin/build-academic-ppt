@@ -103,7 +103,7 @@
 **你：**
 
 ```
-用 build-academic-ppt 把 ~/Documents/王树槐2023.pdf 和 文献证据表.docx 做成 20 页中文汇报 PPT。
+用 build-academic-ppt 把 ~/Documents/paper.pdf 和 notes.docx 做成 20 页中文汇报 PPT。
 ```
 
 **它：**
